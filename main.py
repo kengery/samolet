@@ -7,7 +7,7 @@ import Game
 pygame.init()
 screenx = 1900
 screeny = 1005
-
+#gfg
 g=Game.Game(screenx,screeny)
 
 g.run()
