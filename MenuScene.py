@@ -35,3 +35,4 @@ class MenuScene(Class.Scene):
         self.fon_planer.render()
         self.button_play.render()
         self.button_exit.render()
+        print("Пока")
