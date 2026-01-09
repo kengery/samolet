@@ -1,12 +1,16 @@
 import Class
 import pygame
-import Figyrs
+import GameScene
+import board
+import airplane
+import random
 import sys
 from Image import Image
 
 class MenuScene(Class.Scene):
     def __init__(self, game,display):
         super().__init__(game)
+        self.game=game
         self.display=display
         self.button_play = Image(game.screenx * 0.42, game.screeny * 0.25, game.screenx * 0.17, game.screeny * 0.14, self.display,
                                  'image\\igrat.PNG')
@@ -22,7 +26,8 @@ class MenuScene(Class.Scene):
                 # Логика кликов по меню
                 if self.button_play.click(mouse_x,mouse_y):
                     self.game.change_scene("game")
-                    return
+
+
                 if self.button_exit.click(mouse_x,mouse_y):
                     pygame.quit()
                     sys.exit()
@@ -35,4 +40,3 @@ class MenuScene(Class.Scene):
         self.fon_planer.render()
         self.button_play.render()
         self.button_exit.render()
-        print("Пока")

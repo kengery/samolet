@@ -3,6 +3,8 @@ import MenuScene
 import pygame
 import sys
 import random
+import airplane
+import board
 
 
 class Game:
@@ -50,4 +52,6 @@ class Game:
         """Переключение на другую сцену"""
         if scene_name in self.__scenes:
             self.current_scene = scene_name
+
+
 

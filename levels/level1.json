@@ -1,0 +1,63 @@
+{
+  "airplanes": [
+    {
+      "x": 586.2427729565816,
+      "y": 278.50228172495736,
+      "dx": 32.300000000000004,
+      "dy": 30.15,
+      "name": "Рейс1Tim",
+      "file": "image\\camolet2.png",
+      "speed": 2.15,
+      "speed_min": 0.3,
+      "speed_max": 4,
+      "angle": 66,
+      "benzin": 1487.9600000000014
+    },
+    {
+      "x": 1214.7456196471612,
+      "y": 328.12778994879943,
+      "dx": 32.300000000000004,
+      "dy": 30.15,
+      "name": "Рейс2",
+      "file": "image\\camolet2.png",
+      "speed": 1.75,
+      "speed_min": 0.5,
+      "speed_max": 3,
+      "angle": 260,
+      "benzin": 1482.3600000000001
+    },
+    {
+      "x": 1014.7456196471612,
+      "y": 628.12778994879943,
+      "dx": 32,
+      "dy": 30.15,
+      "name": "Рейс2sdfgdfsgdg",
+      "file": "image\\camolet2.png",
+      "speed": 1.75,
+      "speed_min": 0.5,
+      "speed_max": 3,
+      "angle": 260,
+      "benzin": 1482.3600000000001
+    }
+  ],
+  "tyrbylentnosts": [
+    {
+      "x": 1070.0,
+      "y": 603.0,
+      "dx": 201.0,
+      "dy": 221.1,
+      "file": "image\\Tyrbylent-Photoroom.png"
+    },
+    {
+      "x": 1330.0,
+      "y": 703.5,
+      "dx": 701.0,
+      "dy": 221.1,
+      "file": "image\\Tyrbylent-Photoroom.png"
+    }
+  ],
+  "finish_x": 1020.0,
+  "finish_y": 70.35000000000001,
+  "finish_rx": 57.0,
+  "finish_ry": 60.3
+}

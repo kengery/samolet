@@ -9,5 +9,4 @@ screenx = 1900
 screeny = 1005
 
 g=Game.Game(screenx,screeny)
-print("Привет")
 g.run()
