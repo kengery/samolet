@@ -1,4 +1,5 @@
 import Tyrbylentnost
+import Pogoda
 import airplane
 from dataclasses import dataclass, field, asdict
 import json
@@ -8,13 +9,15 @@ from typing import List
 class new_game_file:
     airplanes: List[airplane]
     tyrbylentnosts: List[Tyrbylentnost]
+    pogoda: List[Pogoda]
     finish_x: int
     finish_y: int
     finish_rx: int
     finish_ry: int
-    def __init__(self, airplanes :list[airplane], tyrbylentnosts :list[Tyrbylentnost], finish_x :int, finish_y : int, finish_rx :int, finish_ry :int ):
+    def __init__(self, airplanes :list[airplane], tyrbylentnosts :list[Tyrbylentnost],pogoda: List[Pogoda], finish_x :int, finish_y : int, finish_rx :int, finish_ry :int ):
         self.airplanes=airplanes
         self.tyrbylentnosts=tyrbylentnosts
+        self.pogoda=pogoda
 
         self.finish_x=finish_x
         self.finish_y=finish_y
@@ -54,10 +57,19 @@ class new_game_file:
             display=display,
             file=plane['file'],
            ) for plane in data['tyrbylentnosts']]
+        pogoda = [Pogoda.Pogoda(
+            x=plane['x'],
+            y=plane['y'],
+            dx=plane['dx'],
+            dy=plane['dx'],
+            display=display,
+            file=plane['file'],
+        ) for plane in data['pogoda']]
 
         return cls(
             airplanes=airplanes,
             tyrbylentnosts=tyrbylentnosts,
+            pogoda=pogoda,
             finish_x=data['finish_x'],
             finish_y=data['finish_y'],
             finish_rx=data['finish_rx'],

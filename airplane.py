@@ -47,12 +47,14 @@ class airplane:
         self.stolk = False
         self.finish = False
         self.poteryan=False
+        self.Zapr_zon=False
         self.scorOpt=3
         self.rashodbenz=0.01
         self.max=False
         self.min=False
         self.ball_benz=0
         self.__koef_ball=1
+        self.click_camolet=False
 
 
     def render(self):

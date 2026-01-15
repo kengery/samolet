@@ -1,4 +1,6 @@
 import random
+
+import Pogoda
 import Tyrbylentnost
 import airplane
 import Class
@@ -20,9 +22,10 @@ class GameScene(Class.Scene):
         self.button_increase = Image(game.screenx * 0.4, game.screeny * 0, game.screenx * 0.1, game.screeny * 0.093,self.display, 'image\\increase.png')
         self.button_reduce = Image(game.screenx * 0.3, game.screeny * 0, game.screenx * 0.1, game.screeny * 0.09,self.display, 'image\\reduse.png')
         self.Radar = Image(game.screenx * -0.125, game.screeny * -0.6, game.screenx * 1.3, game.screeny * 2.3,self.display, 'image\\Radar3.png')
+        self.Aroport=0
         self.game=game
         self.display=display
-        self.click_airplane = []
+        self.click_airplane = None
         self.circle_x=0
         self.circle_y=0
         self.circle_radiusx = 0
@@ -45,11 +48,10 @@ class GameScene(Class.Scene):
                 if self.button_exit.click(mouse_x, mouse_y):
                     self.game.change_scene("menu")
                     self.play_new_game=True
-                    n=new_game_file.new_game_file(self.airplanes,self.Tyrbylentnost, self.circle_x, self.circle_y, self.circle_radiusx,self.circle_radiusy)
 
-                    print(n.to_json())
-
-                self.__select_airplane(mouse_x, mouse_y)
+                for i in range(0, len(self.airplanes)):
+                #    if self.airplanes[i].click(mouse_x, mouse_y):
+                        self.__select_airplane(mouse_x, mouse_y)
 
                 if self.click_airplane is not None:
                     if  self.button_pravo.click(mouse_x, mouse_y):
@@ -57,9 +59,9 @@ class GameScene(Class.Scene):
                     if self.button_levo.click(mouse_x, mouse_y):
                         self.click_airplane.add_angle(8)
                     if self.button_increase.click(mouse_x, mouse_y):
-                        self.click_airplane.add_speed(0.4)
+                        self.click_airplane.add_speed(0.5)
                     if self.button_reduce.click(mouse_x, mouse_y):
-                        self.click_airplane.add_speed(-0.4)
+                        self.click_airplane.add_speed(-0.5)
 
     def update(self):
         if self.play_new_game == True:
@@ -105,6 +107,11 @@ class GameScene(Class.Scene):
                 if 0 >= self.airplanes[i].x or self.game.screenx <= self.airplanes[i].x + self.airplanes[i].dx or 0 >= \
                         self.airplanes[i].y or self.game.screeny <= self.airplanes[i].y + self.airplanes[i].dy:
                     self.airplanes[i].poteryan = True
+            if self.airplanes[i].stolk == False and self.airplanes[i].finish == False and self.airplanes[
+                i].poteryan == False:
+                for j in range(0, len(self.Pogoda)):
+                    if self.Pogoda[j].select(self.airplanes[i].x, self.airplanes[i].y, self.airplanes[i].dx,self.airplanes[i].dy) == True:
+                        self.airplanes[i].stolk=True
 
             if self.airplanes[i].stolk == True:
                 self.airplanes_stolk = self.airplanes_stolk + 1
@@ -129,9 +136,7 @@ class GameScene(Class.Scene):
         self.button_levo.render()
         self.button_increase.render()
         self.button_reduce.render()
-
-        # TODO сделать через image
-        pygame.draw.circle(self.display, (255, 0, 0), (self.circle_x, self.circle_y),self.circle_radiusx)
+        self.Aroport.render()
 
         self.__render_tyrbylentnost()
         self.__render_airplanes()
@@ -139,15 +144,26 @@ class GameScene(Class.Scene):
 
         if self.end_game == True:
             self.__render_end_game()
+            self.end_game=False
 
     def __render_tyrbylentnost(self):
         for i in range(0, len(self.Tyrbylentnost)):
             self.Tyrbylentnost[i].render()
+        for i in range(0, len(self.Pogoda)):
+            self.Pogoda[i].render()
 
     def __render_airplanes(self):
         for i in range(0, len(self.airplanes)):
             if self.airplanes[i].stolk == False and self.airplanes[i].finish == False and self.airplanes[
                 i].poteryan == False:
+                if self.airplanes[i].click_camolet==True:
+                    self.airplanes[i].camolet = Image(self.airplanes[i].x, self.airplanes[i].y, self.airplanes[i].dx,
+                                                      self.airplanes[i].dy, self.display, "image\\camolet3.png")
+                    self.airplanes[i].add_angle(0)
+                else:
+                    self.airplanes[i].camolet = Image(self.airplanes[i].x, self.airplanes[i].y, self.airplanes[i].dx,
+                                                     self.airplanes[i].dy, self.display, "image\\camolet2.png")
+                    self.airplanes[i].add_angle(0)
                 self.airplanes[i].render()
 
     def __render_end_game(self):
@@ -162,14 +178,16 @@ class GameScene(Class.Scene):
         if self.button_airplane is None:
             return
         for i in range(0, len(self.button_airplane)):
-            if self.airplanes[i].stolk == True:
-                self.button_stolk[i].render()
-            else:
+            if self.airplanes[i].stolk != True:
                 self.button_airplane[i].render()
+                if self.airplanes[i].Zapr_zon == True:
+                    Figyrs.print_text(self.display, self.button_airplane[i].x + self.button_airplane[i].dx / 2,
+                                      self.button_airplane[i].y+self.game.screeny*0.01+ self.button_airplane[i].dy, 20, (0, 0, 0),
+                                      f"Самолёт в запретной зоне")
+            else:
+                self.button_stolk[i].render()
             if self.airplanes[i].poteryan == True:
                 self.button_stolk[i].render()
-            else:
-                self.button_airplane[i].render()
             if self.airplanes[i].benzin <= 0:
                 self.button_stolk[i].render()
             if self.airplanes[i].finish == True:
@@ -181,9 +199,12 @@ class GameScene(Class.Scene):
 
             k=0
             for j in range(0, len(self.Tyrbylentnost)):
-                if self.Tyrbylentnost[j].select(self.airplanes[i].x,self.airplanes[i].y,self.airplanes[i].dx,self.airplanes[i].dy,self.game.screenx * 0.09,self.game.screeny * 0.12)==True:
+                if self.Tyrbylentnost[j].select(self.airplanes[i].x,self.airplanes[i].y,self.airplanes[i].dx,self.airplanes[i].dy)==True:
+                    self.airplanes[i].Zapr_zon=True
                     k=1
                     break
+                else:
+                    self.airplanes[i].Zapr_zon=False
             if k==0:
                 self.airplanes[i].ymn_koef_ball(1)
             else:
@@ -201,22 +222,23 @@ class GameScene(Class.Scene):
         # Выбор таблички самолета
         for i in range(0, len(self.button_airplane)):
             if self.button_airplane[i].click(mouse_x, mouse_y):
+                if self.click_airplane is not None:
+                    self.click_airplane.click_camolet=False
+
                 self.click_airplane = self.button_airplane[i].airplane
-                break
+                self.click_airplane.click_camolet=True
+                return
+
         # выбор самолета
         for i in range(0, len(self.airplanes)):
             if self.airplanes[i].click(mouse_x, mouse_y):
+                if self.click_airplane is not None:
+                    self.click_airplane.click_camolet=False
                 self.click_airplane = self.airplanes[i]
-                break
+                self.click_airplane.click_camolet = True
+
 
     def __init_new_game(self):
-
-        """
-        self.circle_x=self.game.screenx*0.8
-        self.circle_y=self.game.screeny*0.07
-        self.circle_radiusx = self.game.screenx * 0.03
-        self.circle_radiusy = self.game.screeny * 0.06
-        """
         self.__new_game_from_file("levels\\level1.json")
 
         #self.__init_airplanes()
@@ -227,12 +249,13 @@ class GameScene(Class.Scene):
         with open(file, 'r', encoding='utf-8') as file:
             file_text = file.read()
 
-        n=new_game_file.new_game_file([],[],0,0,0,0)
+        n=new_game_file.new_game_file([],[],[],0,0,0,0)
         nn=n.from_json( self.display,file_text)
         self.circle_x = nn.finish_x
         self.circle_y = nn.finish_y
         self.circle_radiusx = nn.finish_rx
         self.circle_radiusy = nn.finish_ry
+        self.Aroport=Image(self.circle_x-self.circle_radiusx, self.circle_y-self.circle_radiusy, self.circle_radiusx*2 , self.circle_radiusy*2 , self.display,'image\\Aroport.png')
 
 
         self.airplanes=[]
@@ -249,13 +272,13 @@ class GameScene(Class.Scene):
         self.button_stolk = []
 
         for i in range(0, len(self.airplanes)):
-            a = board.board(self.game.screenx * 0, i * self.game.screeny * 0.07, self.game.screenx * 0.11,
+            a = board.board(self.game.screenx * 0, i*1.4 * self.game.screeny * 0.07, self.game.screenx * 0.11,
                             self.game.screeny * 0.07,
                             self.display, 'image\\button.png', self.airplanes[i])
-            s = board.board(self.game.screenx * 0, i * self.game.screeny * 0.07, self.game.screenx * 0.11,
+            s = board.board(self.game.screenx * 0, i*1.4 * self.game.screeny * 0.07, self.game.screenx * 0.11,
                             self.game.screeny * 0.07,
                             self.display, 'image\\button_green.png', self.airplanes[i])
-            d = board.board(self.game.screenx * 0, i * self.game.screeny * 0.07, self.game.screenx * 0.11,
+            d = board.board(self.game.screenx * 0, i*1.4 * self.game.screeny * 0.07, self.game.screenx * 0.11,
                             self.game.screeny * 0.07,
                             self.display, 'image\\button_red.png', self.airplanes[i])
             self.button_airplane.append(a)
@@ -266,8 +289,10 @@ class GameScene(Class.Scene):
         for i in nn.tyrbylentnosts:
             s = Tyrbylentnost.Tyrbylentnost(self.display, i.x,i.y, i.dx,i.dy,i.file)
             self.Tyrbylentnost.append(s)
-
-
+        self.Pogoda=[]
+        for i in nn.pogoda:
+            s = Pogoda.Pogoda(self.display, i.x,i.y, i.dx,i.dy,i.file)
+            self.Pogoda.append(s)
 
     def __init_airplanes(self):
         self.play_new_game = False
@@ -305,10 +330,3 @@ class GameScene(Class.Scene):
             self.button_finish.append(s)
             self.button_stolk.append(d)
 
-    def __init_tyrbylentnost(self):
-        self.Tyrbylentnost=[]
-        for i in range(0,2):
-            self.gora_x = random.randint(3, 7) / 10
-            self.gora_y = random.randint(3, 7) / 10
-            s= Tyrbylentnost.Tyrbylentnost(self.display, self.game.screenx*self.gora_x, self.game.screeny*self.gora_y, self.game.screeny * 0.2, self.game.screeny * 0.22,'image\\Tyrbylent-Photoroom.png')
-            self.Tyrbylentnost.append(s)

@@ -3,7 +3,7 @@ import math
 from dataclasses import dataclass, field, asdict
 
 @dataclass
-class Tyrbylentnost:
+class Pogoda:
     x: float
     y: float
     dx: int
