@@ -1,6 +1,6 @@
 class Scene:
-    def __init__(self, game):
-        self.game = game
+    def __init__(self, gameEngine):
+        self.gameEngine = gameEngine
 
     def handle_events(self, events):
         pass

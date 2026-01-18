@@ -25,7 +25,7 @@ class MenuScene(Class.Scene):
             if event.type == pygame.MOUSEBUTTONDOWN:
                 # Логика кликов по меню
                 if self.button_play.click(mouse_x,mouse_y):
-                    self.game.change_scene("game")
+                    self.game.change_scene("Menu_game")
 
 
                 if self.button_exit.click(mouse_x,mouse_y):

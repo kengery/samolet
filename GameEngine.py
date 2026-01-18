@@ -2,12 +2,9 @@ import GameScene
 import MenuScene
 import pygame
 import sys
-import random
-import airplane
-import board
+import MenuLevel
 
-
-class Game:
+class GameEngine:
     def __init__(self, screenx,screeny):
         self.__clock = pygame.time.Clock()
         self.__white = (255, 255, 255)
@@ -18,7 +15,8 @@ class Game:
         # Словарь сцен
         self.__scenes = {
             'menu': MenuScene.MenuScene(self,self.__display),
-            'game': GameScene.GameScene(self,self.__display),
+            'game': GameScene.GameScene(self,self.__display,),
+            'Menu_game': MenuLevel.MenuLevel(self, self.__display),
         }
         self.current_scene = 'menu'
 
@@ -48,10 +46,13 @@ class Game:
             pygame.display.update()
             pygame.time.wait(30)
 
-    def change_scene(self, scene_name):
+    def change_scene(self, scene_name, level = ''):
         """Переключение на другую сцену"""
         if scene_name in self.__scenes:
             self.current_scene = scene_name
+            if level!='':
+                self.__scenes["game"].init_new_game(level)
+
 
 
 
