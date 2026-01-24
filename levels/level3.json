@@ -1,21 +1,21 @@
 {
   "airplanes": [
     {
-      "x": 586.2427729565816,
-      "y": 278.50228172495736,
+      "x": 1214.7456196471612,
+      "y": 328.12778994879943,
       "dx": 32.300000000000004,
       "dy": 30.15,
       "name": "Рейс1",
       "file": "image\\camolet2.png",
-      "speed": 2.15,
-      "speed_min": 0.6,
-      "speed_max": 4,
-      "angle": 0,
+      "speed": 1.75,
+      "speed_min": 0.5,
+      "speed_max": 3,
+      "angle": 260,
       "benzin": 1500
     },
     {
-      "x": 1214.7456196471612,
-      "y": 328.12778994879943,
+      "x": 504,
+      "y": 328,
       "dx": 32.300000000000004,
       "dy": 30.15,
       "name": "Рейс2",
@@ -27,8 +27,8 @@
       "benzin": 1500
     },
     {
-      "x": 1514,
-      "y": 328,
+      "x": 50,
+      "y": 600,
       "dx": 32.300000000000004,
       "dy": 30.15,
       "name": "Рейс3",
@@ -36,12 +36,12 @@
       "speed": 1.75,
       "speed_min": 0.5,
       "speed_max": 3,
-      "angle": 270,
+      "angle": 60,
       "benzin": 1500
     },
     {
-      "x": 514,
-      "y": 728,
+      "x": 1600,
+      "y": 800,
       "dx": 32.300000000000004,
       "dy": 30.15,
       "name": "Рейс4",
@@ -49,7 +49,20 @@
       "speed": 1.75,
       "speed_min": 0.5,
       "speed_max": 3,
-      "angle": 30,
+      "angle": 100,
+      "benzin": 1500
+    },
+    {
+      "x": 400,
+      "y": 200,
+      "dx": 32.300000000000004,
+      "dy": 30.15,
+      "name": "Рейс5",
+      "file": "image\\camolet2.png",
+      "speed": 1.75,
+      "speed_min": 0.5,
+      "speed_max": 3,
+      "angle": 290,
       "benzin": 1500
     }
   ],
@@ -62,17 +75,24 @@
       "file": "image\\Tyrbylent-Photoroom.png"
     },
     {
-      "x": 700.0,
-      "y": 773.5,
+      "x": 770.0,
+      "y": 603.0,
       "dx": 241.0,
       "dy": 261.1,
       "file": "image\\Tyrbylent-Photoroom.png"
     },
     {
-      "x": 840.0,
-      "y": 403.5,
-      "dx": 241.0,
-      "dy": 261.1,
+      "x": 1070.0,
+      "y": 753.0,
+      "dx": 181.0,
+      "dy": 201.1,
+      "file": "image\\Tyrbylent-Photoroom.png"
+    },
+    {
+      "x": 610.0,
+      "y": 923.0,
+      "dx": 201.0,
+      "dy": 221.1,
       "file": "image\\Tyrbylent-Photoroom.png"
     }
 
@@ -80,42 +100,42 @@
   "pogoda": [
     {
       "x": 900.0,
-      "y": 703.5,
+      "y": 800.5,
       "dx": 241.0,
       "dy": 261.1,
       "file": "image\\Ploxaya_pogoda.png"
     },
     {
-      "x": 630.0,
-      "y": 503.5,
+      "x": 980.0,
+      "y": 593.5,
       "dx": 241.0,
       "dy": 261.1,
       "file": "image\\Ploxaya_pogoda.png"
     },
     {
-      "x": 1000.0,
-      "y": 891,
+      "x": 1280.0,
+      "y": 593.5,
       "dx": 241.0,
       "dy": 261.1,
       "file": "image\\Ploxaya_pogoda.png"
     },
     {
-      "x": 400.0,
-      "y": 891,
+      "x": 1430.0,
+      "y": 853.5,
       "dx": 241.0,
       "dy": 261.1,
       "file": "image\\Ploxaya_pogoda.png"
     },
     {
-      "x": 1500.0,
-      "y": 801,
-      "dx": 470.0,
-      "dy": 490.1,
+      "x": 330.0,
+      "y": 753.5,
+      "dx": 500.0,
+      "dy": 520.1,
       "file": "image\\Ploxaya_pogoda.png"
     }
   ],
-  "finish_x": 820.0,
-  "finish_y": 900,
+  "finish_x": 1220.0,
+  "finish_y": 870.35000000000001,
   "finish_rx": 57.0,
-  "finish_ry": 60
+  "finish_ry": 60.3
 }

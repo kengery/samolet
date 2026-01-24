@@ -8,15 +8,15 @@ import sys
 from Image import Image
 
 class MenuScene(Class.Scene):
-    def __init__(self, game,display):
-        super().__init__(game)
-        self.game=game
+    def __init__(self, gameEngine,display):
+        super().__init__(gameEngine)
+        self.gameEngine=gameEngine
         self.display=display
-        self.button_play = Image(game.screenx * 0.42, game.screeny * 0.25, game.screenx * 0.17, game.screeny * 0.14, self.display,
+        self.button_play = Image(gameEngine.screenx * 0.42, gameEngine.screeny * 0.25, gameEngine.screenx * 0.17, gameEngine.screeny * 0.14, self.display,
                                  'image\\igrat.PNG')
-        self.button_exit = Image(game.screenx * 0.42, game.screeny * 0.4, game.screenx * 0.17, game.screeny * 0.14, self.display,
+        self.button_exit = Image(gameEngine.screenx * 0.42, gameEngine.screeny * 0.4, gameEngine.screenx * 0.17, gameEngine.screeny * 0.14, self.display,
                                  'image\\bsxod.PNG')
-        self.fon_planer = Image(game.screenx * 0, game.screeny * 0, game.screenx, game.screeny * 0.95, self.display,
+        self.fon_planer = Image(gameEngine.screenx * 0, gameEngine.screeny * 0, gameEngine.screenx, gameEngine.screeny * 0.95, self.display,
                                 'image\\fon_planer.jpg')
 
     def handle_events(self, events):
@@ -25,7 +25,7 @@ class MenuScene(Class.Scene):
             if event.type == pygame.MOUSEBUTTONDOWN:
                 # Логика кликов по меню
                 if self.button_play.click(mouse_x,mouse_y):
-                    self.game.change_scene("Menu_game")
+                    self.gameEngine.change_scene("Menu_game")
 
 
                 if self.button_exit.click(mouse_x,mouse_y):

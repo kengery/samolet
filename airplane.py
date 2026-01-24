@@ -6,6 +6,7 @@ import Image
 import math
 import Figyrs
 from dataclasses import dataclass, field, asdict
+import time
 
 @dataclass
 class airplane:
@@ -39,7 +40,7 @@ class airplane:
         self.izn_benzin=self.benzin
         self.benzin_rashod=0
         self.display=display
-        self.camolet = Image.Image(self.x, self.y, self.dx, self.dy,self.display, file)
+        self.camolet = Image.Image(self.x, self.y, self.dx, self.dy,self.display, file,self.angle)
         self.camolet.set_angle(self.angle)
         self.points=[]
         self.file=file
@@ -55,6 +56,8 @@ class airplane:
         self.ball_benz=0
         self.__koef_ball=1
         self.click_camolet=False
+        self.wait=0.3
+        self.last_time=time.time()#-self.wait*2
 
 
     def render(self):
@@ -69,8 +72,12 @@ class airplane:
                 pygame.draw.line(self.display, (0, 0, 0), (n.x, n.y), (m.x, m.y))
 
     def add_angle(self,angle):
-        self.angle=self.angle+angle
-        self.camolet.set_angle(self.angle)
+
+        if time.time()-self.last_time>self.wait:
+            self.angle=self.angle+angle
+            self.camolet.set_angle(self.angle)
+            self.last_time=time.time()
+
 
     def add_speed(self,speed):
         if self.speed+speed <= self.speed_min:

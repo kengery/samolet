@@ -1,5 +1,5 @@
 import random
-
+import Microphon
 import MenuLevel
 import Pogoda
 import Tyrbylentnost
@@ -11,8 +11,10 @@ from Image import Image
 import board
 import math
 import new_game_file
-import json
-
+import queue
+import time
+# Очередь для передачи команд
+command_queue = queue.Queue()
 class GameScene(Class.Scene):
     def __init__(self, gameEngine, display):
         super().__init__(gameEngine)
@@ -44,21 +46,20 @@ class GameScene(Class.Scene):
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if self.button_exit.click(mouse_x, mouse_y):
                     self.gameEngine.change_scene("menu")
-
                 for i in range(0, len(self.airplanes)):
                 #    if self.airplanes[i].click(mouse_x, mouse_y):
                         self.__select_airplane(mouse_x, mouse_y)
 
                 if self.click_airplane is not None:
-                    if  self.button_pravo.click(mouse_x, mouse_y):
-                        self.click_airplane.add_angle(-8)
+                    if self.button_pravo.click(mouse_x, mouse_y):
+                        self.click_airplane.add_angle(-10)
                     if self.button_levo.click(mouse_x, mouse_y):
-                        self.click_airplane.add_angle(8)
+                        self.click_airplane.add_angle(10)
                     if self.button_increase.click(mouse_x, mouse_y):
                         self.click_airplane.add_speed(0.5)
                     if self.button_reduce.click(mouse_x, mouse_y):
                         self.click_airplane.add_speed(-0.5)
-
+        Microphon.vabor(self.click_airplane)
 
     def update(self):
 
@@ -152,12 +153,12 @@ class GameScene(Class.Scene):
                 i].poteryan == False:
                 if self.airplanes[i].click_camolet==True:
                     self.airplanes[i].camolet = Image(self.airplanes[i].x, self.airplanes[i].y, self.airplanes[i].dx,
-                                                      self.airplanes[i].dy, self.display, "image\\camolet3.png")
-                    self.airplanes[i].add_angle(0)
+                                                      self.airplanes[i].dy, self.display, "image\\camolet3.png",self.airplanes[i].angle)
+
                 else:
                     self.airplanes[i].camolet = Image(self.airplanes[i].x, self.airplanes[i].y, self.airplanes[i].dx,
-                                                     self.airplanes[i].dy, self.display, "image\\camolet2.png")
-                    self.airplanes[i].add_angle(0)
+                                                     self.airplanes[i].dy, self.display, "image\\camolet2.png",self.airplanes[i].angle)
+
                 self.airplanes[i].render()
 
     def __render_end_game(self):
@@ -177,7 +178,7 @@ class GameScene(Class.Scene):
                 if self.airplanes[i].Zapr_zon == True:
                     Figyrs.print_text(self.display, self.button_airplane[i].x + self.button_airplane[i].dx / 2,
                                       self.button_airplane[i].y+self.gameEngine.screeny*0.01+ self.button_airplane[i].dy, 20, (0, 0, 0),
-                                      f"Самолёт в запретной зоне")
+                                      f"Самолёт в ветреной зоне")
             else:
                 self.button_stolk[i].render()
             if self.airplanes[i].poteryan == True:
@@ -269,7 +270,7 @@ class GameScene(Class.Scene):
         for i in range(0, len(self.airplanes)):
             a = board.board(self.gameEngine.screenx * 0, i*1.4 * self.gameEngine.screeny * 0.07, self.gameEngine.screenx * 0.11,
                             self.gameEngine.screeny * 0.08,
-                            self.display, 'image\\button.png', self.airplanes[i])
+                            self.display, 'image\\button1.png', self.airplanes[i])
             s = board.board(self.gameEngine.screenx * 0, i*1.4 * self.gameEngine.screeny * 0.07, self.gameEngine.screenx * 0.11,
                             self.gameEngine.screeny * 0.08,
                             self.display, 'image\\button_green.png', self.airplanes[i])
