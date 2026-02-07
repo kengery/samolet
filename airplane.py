@@ -34,8 +34,10 @@ class airplane:
         self.name=name
         self.angle=angle
         self.speed=speed
+
         self.speed_min=speed_min
         self.speed_max=speed_max
+
         self.benzin=benzin
         self.izn_benzin=self.benzin
         self.benzin_rashod=0
@@ -56,8 +58,12 @@ class airplane:
         self.ball_benz=0
         self.__koef_ball=1
         self.click_camolet=False
-        self.wait=0.3
-        self.last_time=time.time()#-self.wait*2
+
+        self.command_last_time=time.time()
+        self.command=None
+        self.command_wait=0.5
+        self.command_speed=0.2
+        self.command_angle=10
 
 
     def render(self):
@@ -72,25 +78,21 @@ class airplane:
                 pygame.draw.line(self.display, (0, 0, 0), (n.x, n.y), (m.x, m.y))
 
     def add_angle(self,angle):
-
-        if time.time()-self.last_time>self.wait:
-            self.angle=self.angle+angle
-            self.camolet.set_angle(self.angle)
-            self.last_time=time.time()
+        if self.command is None:
+            self.command_last_time=time.time()
+            if angle>0:
+                self.command=command_airplane_angle(angle, True)
+            else:
+                self.command = command_airplane_angle(angle, False)
 
 
     def add_speed(self,speed):
-        if self.speed+speed <= self.speed_min:
-            self.min=True
-        else:
-            self.min=False
-        if self.speed+speed >= self.speed_max:
-            self.max=True
-        else:
-            self.max =False
-        if self.speed_min < self.speed+speed < self.speed_max:
-            self.speed=self.speed+speed
-
+        if self.command is None:
+            self.command_last_time = time.time()
+            if speed > 0:
+                self.command = command_airplane_speed(speed, True)
+            else:
+                self.command = command_airplane_speed(-speed, False)
 
     def click(self,mouse_x,mouse_y)->bool:
         return self.camolet.click(mouse_x, mouse_y)
@@ -105,6 +107,48 @@ class airplane:
             return
         if self.finish==True or self.stolk==True or self.poteryan==True:
             return
+        if time.time()-self.command_last_time>self.command_wait and self.command is not None:
+            if isinstance(self.command, command_airplane_angle):
+                angle_Min=self.command_angle
+                if self.command.left==True:
+                    self.command.angle = self.command.angle - angle_Min
+                    angle_Min=angle_Min*-1
+                    if self.command.angle <= 0:
+                        self.command = None
+                else:
+                    self.command.angle = self.command.angle + angle_Min
+                    if self.command.angle >= 0:
+                        self.command = None
+                self.angle=self.angle-angle_Min
+                self.command_last_time=time.time()
+                self.camolet.set_angle(self.angle)
+
+            if isinstance(self.command, command_airplane_speed):
+                speed_Min = self.command_speed
+                if self.command.increase_speed == True:
+                    if self.command.speed - speed_Min <= 0:
+                        self.command = None
+                        return
+                    else:
+                        self.command.speed = self.command.speed - speed_Min
+                    self.speed = self.speed + speed_Min
+                    if self.speed >=self.speed_max:
+                        self.speed=self.speed_max
+                        self.command=None
+                else:
+                    if self.command.speed - speed_Min <= 0:
+                        self.command = None
+                        return
+                    else:
+                        self.command.speed = self.command.speed - speed_Min
+
+                    self.speed = self.speed - speed_Min
+                    if self.speed <= self.speed_min:
+                        self.speed = self.speed_min
+                        self.command = None
+                self.command_last_time = time.time()
+
+
         angle_rad = math.radians(self.angle)
 
         # Рассчитываем смещение по осям
@@ -124,9 +168,17 @@ class airplane:
         self.ball_benz=self.ball_benz+self.benzin_rashod
 
 
-
-
 class point:
     def __init__(self,x, y):
         self.x=x
         self.y=y
+
+class command_airplane_angle:
+    def __init__(self,angle, left):
+        self.angle=angle
+        self.left=left
+
+class command_airplane_speed:
+    def __init__(self,speed, increase_speed):
+        self.speed=speed
+        self.increase_speed=increase_speed

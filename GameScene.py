@@ -52,13 +52,13 @@ class GameScene(Class.Scene):
 
                 if self.click_airplane is not None:
                     if self.button_pravo.click(mouse_x, mouse_y):
-                        self.click_airplane.add_angle(-10)
+                        self.click_airplane.add_angle(-30)
                     if self.button_levo.click(mouse_x, mouse_y):
-                        self.click_airplane.add_angle(10)
+                        self.click_airplane.add_angle(30)
                     if self.button_increase.click(mouse_x, mouse_y):
-                        self.click_airplane.add_speed(0.5)
+                        self.click_airplane.add_speed(1.5)
                     if self.button_reduce.click(mouse_x, mouse_y):
-                        self.click_airplane.add_speed(-0.5)
+                        self.click_airplane.add_speed(-1.5)
         Microphon.vabor(self.click_airplane)
 
     def update(self):
