@@ -84,6 +84,7 @@ class airplane:
 
 
     def add_speed(self,speed):
+        print(f"{self.name} speed add {speed}")
         if self.command is None:
             self.command_last_time = time.time()
             if speed > 0:

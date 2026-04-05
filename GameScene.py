@@ -1,5 +1,4 @@
 import random
-import Microphon
 import MenuLevel
 import Pogoda
 import Tyrbylentnost
@@ -15,6 +14,7 @@ import queue
 import Zona
 import point
 import time
+import MyMicrophone
 # Очередь для передачи команд
 command_queue = queue.Queue()
 class GameScene(Class.Scene):
@@ -42,9 +42,17 @@ class GameScene(Class.Scene):
         self.ball = 0
         #self.points=[point.point(200, 300), point.point(700, 200), point.point(700, 800), point.point(500, 400)]
         self.n_zona=[]#Zona.zona(self.display, self.points, (0, 0, 0))
+        self.my_microphone = MyMicrophone.MyMicrophone()
 
     def handle_events(self, events):
+        self.__process_voice_commands()
         for event in events:
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                if getattr(event, "repeat", 0) == 0:
+                    self.my_microphone.space_pressed()
+            if event.type == pygame.KEYUP and event.key == pygame.K_SPACE:
+                self.my_microphone.space_released()
+
             mouse_x, mouse_y = pygame.mouse.get_pos()
 
             if event.type == pygame.MOUSEBUTTONDOWN:
@@ -63,7 +71,7 @@ class GameScene(Class.Scene):
                         self.click_airplane.add_speed(1)
                     if self.button_reduce.click(mouse_x, mouse_y):
                         self.click_airplane.add_speed(-1)
-        Microphon.vabor(self.click_airplane)
+
 
     def update(self):
 
@@ -228,6 +236,31 @@ class GameScene(Class.Scene):
                 self.ball = self.ball + self.airplanes[i].ball_benz
             else:
                 self.ball = self.ball + self.airplanes[i].izn_benzin
+
+    def __process_voice_commands(self):
+        if not getattr(self, "airplanes", None):
+            while self.my_microphone.pop_command() is not None:
+                pass
+            return
+
+        while True:
+            cmd = self.my_microphone.pop_command()
+
+            if cmd is None:
+                break
+            print(f"ищем {cmd["name"]} ")
+            plane = None
+            for p in self.airplanes:
+                if MyMicrophone.MyMicrophone.same_plane_name(p.name.lower(), cmd["name"]):
+                    plane = p
+                    break
+            if plane is None:
+                print(f"{cmd["name"]} не найден")
+                continue
+            if cmd["type"] == "turn":
+                plane.add_angle(cmd["value"]/100)
+            elif cmd["type"] == "speed":
+                plane.add_speed(cmd["value"]/100)
 
     def __select_airplane(self, mouse_x, mouse_y):
         # Выбор таблички самолета
