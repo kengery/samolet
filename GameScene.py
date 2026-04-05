@@ -12,6 +12,8 @@ import board
 import math
 import new_game_file
 import queue
+import Zona
+import point
 import time
 # Очередь для передачи команд
 command_queue = queue.Queue()
@@ -38,6 +40,8 @@ class GameScene(Class.Scene):
         self.airplanes_finish=0
         self.airplanes_poteryan=0
         self.ball = 0
+        #self.points=[point.point(200, 300), point.point(700, 200), point.point(700, 800), point.point(500, 400)]
+        self.n_zona=[]#Zona.zona(self.display, self.points, (0, 0, 0))
 
     def handle_events(self, events):
         for event in events:
@@ -52,13 +56,13 @@ class GameScene(Class.Scene):
 
                 if self.click_airplane is not None:
                     if self.button_pravo.click(mouse_x, mouse_y):
-                        self.click_airplane.add_angle(-30)
+                        self.click_airplane.add_angle(-15)
                     if self.button_levo.click(mouse_x, mouse_y):
-                        self.click_airplane.add_angle(30)
+                        self.click_airplane.add_angle(15)
                     if self.button_increase.click(mouse_x, mouse_y):
-                        self.click_airplane.add_speed(1.5)
+                        self.click_airplane.add_speed(1)
                     if self.button_reduce.click(mouse_x, mouse_y):
-                        self.click_airplane.add_speed(-1.5)
+                        self.click_airplane.add_speed(-1)
         Microphon.vabor(self.click_airplane)
 
     def update(self):
@@ -102,11 +106,20 @@ class GameScene(Class.Scene):
                 if 0 >= self.airplanes[i].x or self.gameEngine.screenx <= self.airplanes[i].x + self.airplanes[i].dx or 0 >= \
                         self.airplanes[i].y or self.gameEngine.screeny <= self.airplanes[i].y + self.airplanes[i].dy:
                     self.airplanes[i].poteryan = True
+            """
             if self.airplanes[i].stolk == False and self.airplanes[i].finish == False and self.airplanes[
                 i].poteryan == False:
                 for j in range(0, len(self.Pogoda)):
                     if self.Pogoda[j].select(self.airplanes[i].x, self.airplanes[i].y, self.airplanes[i].dx,self.airplanes[i].dy) == True:
                         self.airplanes[i].stolk=True
+            """
+            """
+            if self.airplanes[i].stolk == False and self.airplanes[i].finish == False and self.airplanes[
+                i].poteryan == False:
+                for j in range(0, len(self.points)):
+                    if self.n_zona.select(self.airplanes[i].x+self.airplanes[i].dx/2,self.airplanes[i].y+self.airplanes[i].dy/2)==True:
+                        self.airplanes[i].stolk = True
+"""
 
             if self.airplanes[i].stolk == True:
                 self.airplanes_stolk = self.airplanes_stolk + 1
@@ -137,6 +150,7 @@ class GameScene(Class.Scene):
         self.__render_airplanes()
         self.__render_button_airplanes()
 
+
         if self.end_game == True:
             self.__render_end_game()
             self.end_game=False
@@ -144,8 +158,10 @@ class GameScene(Class.Scene):
     def __render_tyrbylentnost(self):
         for i in range(0, len(self.Tyrbylentnost)):
             self.Tyrbylentnost[i].render()
-        for i in range(0, len(self.Pogoda)):
-            self.Pogoda[i].render()
+        for i in range(0, len(self.n_zona)):
+            self.n_zona[i].render()
+        #for i in range(0, len(self.Pogoda)):
+        #    self.Pogoda[i].render()
 
     def __render_airplanes(self):
         for i in range(0, len(self.airplanes)):
@@ -245,7 +261,7 @@ class GameScene(Class.Scene):
         with open(file, 'r', encoding='utf-8') as filef:
             file_text = filef.read()
 
-        n=new_game_file.new_game_file([],[],[],0,0,0,0)
+        n=new_game_file.new_game_file([],[],[],[],0,0,0,0)
         nn=n.from_json( self.display,file_text)
         self.circle_x = nn.finish_x
         self.circle_y = nn.finish_y
@@ -290,6 +306,11 @@ class GameScene(Class.Scene):
         for i in nn.pogoda:
             s = Pogoda.Pogoda(self.display, i.x,i.y, i.dx,i.dy,i.file)
             self.Pogoda.append(s)
+
+        self.n_zona = []
+        for i in nn.zona:
+            s = Zona.zona(self.display, i.points,i.color)
+            self.n_zona.append(s)
 
     def __init_airplanes(self):
         self.airplanes = []

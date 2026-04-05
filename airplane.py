@@ -28,9 +28,6 @@ class airplane:
         self.dx=dx
         self.dy=dy
 
-        self.angle_vis=0
-        self.visota=800
-
         self.name=name
         self.angle=angle
         self.speed=speed
@@ -63,7 +60,7 @@ class airplane:
         self.command=None
         self.command_wait=0.5
         self.command_speed=0.2
-        self.command_angle=10
+        self.command_angle=15
 
 
     def render(self):
