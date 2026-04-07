@@ -64,30 +64,6 @@
     }
 
   ],
-  "pogoda": [
-    {
-      "x": 1030.0,
-      "y": 703.5,
-      "dx": 241.0,
-      "dy": 261.1,
-      "file": "image\\Ploxaya_pogoda.png"
-    },
-    {
-      "x": 230.0,
-      "y": 703.5,
-      "dx": 241.0,
-      "dy": 261.1,
-      "file": "image\\Ploxaya_pogoda.png"
-    },
-    {
-      "x": 630.0,
-      "y": 503.5,
-      "dx": 241.0,
-      "dy": 261.1,
-      "file": "image\\Ploxaya_pogoda.png"
-    }
-
-  ],
   "zona": [
     {
       "point": [[650, 150], [1500, 150], [1000, 280]],

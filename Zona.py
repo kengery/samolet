@@ -16,10 +16,10 @@ class zona:
         # Рисуем закрашенный многоугольник
         pygame.draw.polygon(self.display, self.color, point_list)
 
-    def select(self,x, y):
+    def select(self, x, y):
         inside = False
 
-        for i in range(0,len(self.points)):
+        for i in range(len(self.points)):
             x1 = self.points[i][0]
             y1 = self.points[i][1]
             x2 = self.points[(i + 1) % len(self.points)][0]
@@ -31,7 +31,7 @@ class zona:
                 x_intersect = x1 + (x2 - x1) * (y - y1) / (y2 - y1)
 
                 # Если пересечение справа от точки
-                if x < x_intersect:
-                    inside = True
+                if x <= x_intersect:
+                    inside = not inside  # ← ИНВЕРТИРУЕМ, а не устанавливаем в True
 
         return inside

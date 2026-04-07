@@ -66,6 +66,7 @@ class airplane:
     def render(self):
         self.camolet.render()
         Figyrs.print_text(self.display,self.x+self.dx/2,self.y,25,(0,0,0),f"{self.name}")
+        pygame.draw.circle(self.display,(255,0,0),(self.x+self.dx/2,self.y+self.dy/2),self.dx/2,2)
 
         if len(self.points) > 1:
             self.count_points = max(0, len(self.points) - 150)
@@ -84,7 +85,6 @@ class airplane:
 
 
     def add_speed(self,speed):
-        print(f"{self.name} speed add {speed}")
         if self.command is None:
             self.command_last_time = time.time()
             if speed > 0:
@@ -95,10 +95,10 @@ class airplane:
     def click(self,mouse_x,mouse_y)->bool:
         return self.camolet.click(mouse_x, mouse_y)
 
-    def ymn_koef_ball(self,koef_ball):
+    def ymn_koef_ball(self,koef_ball):#множитель балла
         self.__koef_ball=koef_ball
 
-    def move(self):
+    def move(self):#логика самолёта(move - переводится как двигнать)
         if self.benzin<=0:
             self.benzin=0
             self.poteryan=True

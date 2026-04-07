@@ -10,16 +10,14 @@ from typing import List
 class new_game_file:
     airplanes: List[airplane]
     tyrbylentnosts: List[Tyrbylentnost]
-    pogoda: List[Pogoda]
     zona: List[Zona]
     finish_x: int
     finish_y: int
     finish_rx: int
     finish_ry: int
-    def __init__(self, airplanes :list[airplane], tyrbylentnosts :list[Tyrbylentnost],pogoda: List[Pogoda], zona: list[Zona], finish_x :int, finish_y : int, finish_rx :int, finish_ry :int ):
+    def __init__(self, airplanes :list[airplane], tyrbylentnosts :list[Tyrbylentnost], zona: list[Zona], finish_x :int, finish_y : int, finish_rx :int, finish_ry :int ):
         self.airplanes=airplanes
         self.tyrbylentnosts=tyrbylentnosts
-        self.pogoda=pogoda
         self.zona=zona
 
         self.finish_x=finish_x
@@ -60,14 +58,6 @@ class new_game_file:
             display=display,
             file=plane['file'],
            ) for plane in data['tyrbylentnosts']]
-        pogoda = [Pogoda.Pogoda(
-            x=plane['x'],
-            y=plane['y'],
-            dx=plane['dx'],
-            dy=plane['dx'],
-            display=display,
-            file=plane['file'],
-        ) for plane in data['pogoda']]
         zona = [Zona.zona(
             points=plane['point'],
             color=plane['color'],
@@ -77,7 +67,6 @@ class new_game_file:
         return cls(
             airplanes=airplanes,
             tyrbylentnosts=tyrbylentnosts,
-            pogoda=pogoda,
             zona=zona,
             finish_x=data['finish_x'],
             finish_y=data['finish_y'],

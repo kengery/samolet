@@ -98,7 +98,8 @@ class GameScene(Class.Scene):
                             self.airplanes[i].stolk = True
                             self.airplanes[j].stolk = True
 
-            if self.airplanes[i].stolk == False and self.airplanes[i].finish == False:
+            if self.airplanes[i].stolk == False and self.airplanes[i].finish == False and self.airplanes[
+                i].poteryan == False:
                 x1 = self.airplanes[i].x + self.airplanes[i].dx / 2
                 y1 = self.airplanes[i].y + self.airplanes[i].dy / 2
                 x2 = self.circle_x
@@ -121,13 +122,12 @@ class GameScene(Class.Scene):
                     if self.Pogoda[j].select(self.airplanes[i].x, self.airplanes[i].y, self.airplanes[i].dx,self.airplanes[i].dy) == True:
                         self.airplanes[i].stolk=True
             """
-            """
+
             if self.airplanes[i].stolk == False and self.airplanes[i].finish == False and self.airplanes[
                 i].poteryan == False:
-                for j in range(0, len(self.points)):
-                    if self.n_zona.select(self.airplanes[i].x+self.airplanes[i].dx/2,self.airplanes[i].y+self.airplanes[i].dy/2)==True:
+                for j in range(0, len(self.n_zona)):
+                    if self.n_zona[j].select(self.airplanes[i].x+self.airplanes[i].dx/2,self.airplanes[i].y+self.airplanes[i].dy/2)==True:
                         self.airplanes[i].stolk = True
-"""
 
             if self.airplanes[i].stolk == True:
                 self.airplanes_stolk = self.airplanes_stolk + 1
@@ -189,7 +189,7 @@ class GameScene(Class.Scene):
         Figyrs.kvadr_poly(self.gameEngine.screenx*0.25,self.gameEngine.screeny*0.25,self.gameEngine.screenx*0.5,self.gameEngine.screeny*0.4,200,self.display)
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.505, self.gameEngine.screeny * 0.35,80, (0, 0, 0),f"Баллы = {int(self.ball)}")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.4,self.gameEngine.screeny * 0.45,40,(0,0,0),f"Столкнулись = {self.airplanes_stolk}")
-        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, self.gameEngine.screeny * 0.5, 40, (0, 0, 0),f"Потерены = {self.airplanes_poteryan}")
+        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, self.gameEngine.screeny * 0.5, 40, (0, 0, 0),f"Потеряны = {self.airplanes_poteryan}")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.62, self.gameEngine.screeny * 0.45,40, (0, 0, 0),f"Прилетели в аэропорт = {self.airplanes_finish}")
 
 
@@ -294,7 +294,7 @@ class GameScene(Class.Scene):
         with open(file, 'r', encoding='utf-8') as filef:
             file_text = filef.read()
 
-        n=new_game_file.new_game_file([],[],[],[],0,0,0,0)
+        n=new_game_file.new_game_file([],[],[],0,0,0,0)
         nn=n.from_json( self.display,file_text)
         self.circle_x = nn.finish_x
         self.circle_y = nn.finish_y
@@ -334,11 +334,6 @@ class GameScene(Class.Scene):
         for i in nn.tyrbylentnosts:
             s = Tyrbylentnost.Tyrbylentnost(self.display, i.x,i.y, i.dx,i.dy,i.file)
             self.Tyrbylentnost.append(s)
-
-        self.Pogoda=[]
-        for i in nn.pogoda:
-            s = Pogoda.Pogoda(self.display, i.x,i.y, i.dx,i.dy,i.file)
-            self.Pogoda.append(s)
 
         self.n_zona = []
         for i in nn.zona:
