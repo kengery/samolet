@@ -127,7 +127,7 @@ class GameScene(Class.Scene):
                 i].poteryan == False:
                 for j in range(0, len(self.n_zona)):
                     if self.n_zona[j].select(self.airplanes[i].x+self.airplanes[i].dx/2,self.airplanes[i].y+self.airplanes[i].dy/2)==True:
-                        self.airplanes[i].stolk = True
+                        self.airplanes[i].poteryan = True
 
             if self.airplanes[i].stolk == True:
                 self.airplanes_stolk = self.airplanes_stolk + 1

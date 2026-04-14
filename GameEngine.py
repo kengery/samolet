@@ -52,7 +52,3 @@ class GameEngine:
             self.current_scene = scene_name
             if level!='':
                 self.__scenes["game"].init_new_game(level)
-
-
-
-

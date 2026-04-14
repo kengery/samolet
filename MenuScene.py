@@ -1,5 +1,7 @@
 import Class
 import pygame
+
+import Figyrs
 import GameScene
 import board
 import airplane
@@ -12,10 +14,10 @@ class MenuScene(Class.Scene):
         super().__init__(gameEngine)
         self.gameEngine=gameEngine
         self.display=display
-        self.button_play = Image(gameEngine.screenx * 0.42, gameEngine.screeny * 0.25, gameEngine.screenx * 0.17, gameEngine.screeny * 0.14, self.display,
-                                 'image\\igrat.PNG')
-        self.button_exit = Image(gameEngine.screenx * 0.42, gameEngine.screeny * 0.4, gameEngine.screenx * 0.17, gameEngine.screeny * 0.14, self.display,
-                                 'image\\bsxod.PNG')
+        self.Button_play = Image(gameEngine.screenx * 0.42, gameEngine.screeny * 0.25, gameEngine.screenx * 0.17,gameEngine.screeny * 0.14, self.display,
+                                 'image\\Button.png')
+        self.Button_exit = Image(gameEngine.screenx * 0.42, gameEngine.screeny * 0.4, gameEngine.screenx * 0.17,gameEngine.screeny * 0.14, self.display,
+                                 'image\\Button.png')
         self.fon_planer = Image(gameEngine.screenx * 0, gameEngine.screeny * 0, gameEngine.screenx, gameEngine.screeny * 0.95, self.display,
                                 'image\\fon_planer.jpg')
 
@@ -24,11 +26,11 @@ class MenuScene(Class.Scene):
             mouse_x, mouse_y = pygame.mouse.get_pos()
             if event.type == pygame.MOUSEBUTTONDOWN:
                 # Логика кликов по меню
-                if self.button_play.click(mouse_x,mouse_y):
+                if self.Button_play.click(mouse_x,mouse_y):
                     self.gameEngine.change_scene("Menu_game")
 
 
-                if self.button_exit.click(mouse_x,mouse_y):
+                if self.Button_exit.click(mouse_x,mouse_y):
                     pygame.quit()
                     sys.exit()
 
@@ -38,5 +40,7 @@ class MenuScene(Class.Scene):
     def render(self):
         #Figyrs.kvadrat(self.display,(255,0,0),100,100,50)
         self.fon_planer.render()
-        self.button_play.render()
-        self.button_exit.render()
+        self.Button_play.render()
+        Figyrs.print_text(self.display,self.gameEngine.screenx * 0.505,self.gameEngine.screeny * 0.315,85,(0,0,0),"Начать")
+        self.Button_exit.render()
+        Figyrs.print_text(self.display,self.gameEngine.screenx * 0.505,self.gameEngine.screeny * 0.465,85,(0,0,0),"Выход")
