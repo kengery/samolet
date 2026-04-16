@@ -1,168 +1,127 @@
 {
   "airplanes": [
     {
-      "x": 686.0,
-      "y": 278.50228172495736,
+      "x": 900.0,
+      "y": 200,
       "dx": 32.300000000000004,
       "dy": 30.15,
       "name": "Рейс1",
       "file": "image\\camolet2.png",
-      "speed": 2.15,
-      "speed_min": 0.6,
+      "speed": 1.90,
+      "speed_min": 0.4,
       "speed_max": 4,
-      "angle": 0,
+      "angle": 215,
       "benzin": 1500
     },
     {
-      "x": 1686.0,
-      "y": 878.0,
+      "x": 1250.0,
+      "y": 400.0,
       "dx": 32.0,
       "dy": 30.15,
       "name": "Рейс2",
       "file": "image\\camolet2.png",
-      "speed": 2.15,
-      "speed_min": 0.6,
+      "speed": 1.90,
+      "speed_min": 0.4,
       "speed_max": 4,
-      "angle": 180,
+      "angle": 220,
       "benzin": 1500
     },
     {
-      "x": 1086.0,
-      "y": 508.0,
+      "x": 1650.0,
+      "y": 880.0,
       "dx": 32.0,
       "dy": 30.15,
       "name": "Рейс3",
       "file": "image\\camolet2.png",
-      "speed": 2.15,
-      "speed_min": 0.6,
+      "speed": 1.90,
+      "speed_min": 0.4,
+      "speed_max": 4,
+      "angle": 90,
+      "benzin": 1500
+    },
+    {
+      "x": 300.0,
+      "y": 900.0,
+      "dx": 32.0,
+      "dy": 30.15,
+      "name": "Рейс4",
+      "file": "image\\camolet2.png",
+      "speed": 1.90,
+      "speed_min": 0.4,
       "speed_max": 4,
       "angle": 0,
       "benzin": 1500
     },
     {
-      "x": 586.0,
-      "y": 578.0,
-      "dx": 32.0,
-      "dy": 30.15,
-      "name": "Рейс4",
-      "file": "image\\camolet2.png",
-      "speed": 2.15,
-      "speed_min": 0.6,
-      "speed_max": 4,
-      "angle": 40,
-      "benzin": 1500
-    },
-    {
-      "x": 1586.0,
-      "y": 108.0,
+      "x": 700.0,
+      "y": 600.0,
       "dx": 32.0,
       "dy": 30.15,
       "name": "Рейс5",
       "file": "image\\camolet2.png",
-      "speed": 2.15,
-      "speed_min": 0.6,
+      "speed": 1.90,
+      "speed_min": 0.4,
       "speed_max": 4,
-      "angle": 200,
-      "benzin": 1500
-    },
-    {
-      "x": 1086.0,
-      "y": 878.0,
-      "dx": 32.0,
-      "dy": 30.15,
-      "name": "Рейс6",
-      "file": "image\\camolet2.png",
-      "speed": 2.15,
-      "speed_min": 0.6,
-      "speed_max": 4,
-      "angle": 80,
+      "angle": 157,
       "benzin": 1500
     }
   ],
   "tyrbylentnosts": [
     {
-      "x": 1070.0,
-      "y": 403.0,
-      "dx": 241.0,
-      "dy": 261.1,
+      "x": 455.0,
+      "y": 350.0,
+      "dx": 171.0,
+      "dy": 191.1,
       "file": "image\\Tyrbylent-Photoroom.png"
     },
     {
-      "x": 1330.0,
-      "y": 703.5,
-      "dx": 241.0,
-      "dy": 261.1,
+      "x": 1650.0,
+      "y": 203.5,
+      "dx": 281.0,
+      "dy": 301.1,
       "file": "image\\Tyrbylent-Photoroom.png"
     },
     {
-      "x": 1400.0,
-      "y": 413.5,
-      "dx": 241.0,
-      "dy": 261.1,
+      "x": 650.0,
+      "y": 450.5,
+      "dx": 141.0,
+      "dy": 161.1,
       "file": "image\\Tyrbylent-Photoroom.png"
     },
     {
-      "x": 250.0,
-      "y": 153.5,
-      "dx": 341.0,
-      "dy": 361.1,
+      "x": 630.0,
+      "y": 753.5,
+      "dx": 181.0,
+      "dy": 201.1,
       "file": "image\\Tyrbylent-Photoroom.png"
     }
 
   ],
-  "pogoda": [
+  "zona": [
     {
-      "x": 1780.0,
-      "y": 623.5,
-      "dx": 241.0,
-      "dy": 261.1,
-      "file": "image\\Ploxaya_pogoda.png"
+      "point": [[100, 200], [500, 20], [900, 100], [400, 300], [200, 300]],
+      "color": [74,12,22]
     },
     {
-      "x": 1780.0,
-      "y": 273.5,
-      "dx": 241.0,
-      "dy": 261.1,
-      "file": "image\\Ploxaya_pogoda.png"
+      "point": [[730, 400], [1100, 200], [1300, 300],[820,500]],
+      "color": [74,12,22]
     },
     {
-      "x": 1580.0,
-      "y": 603.5,
-      "dx": 241.0,
-      "dy": 261.1,
-      "file": "image\\Ploxaya_pogoda.png"
+      "point": [[1600, 500], [1800, 300], [1800, 600]],
+      "color": [74,12,22]
     },
     {
-      "x": 1580.0,
-      "y": 303.5,
-      "dx": 241.0,
-      "dy": 261.1,
-      "file": "image\\Ploxaya_pogoda.png"
+      "point": [[100, 700], [200, 650], [400, 600], [570, 700], [200, 900]],
+      "color": [74,12,22]
     },
     {
-      "x": 330.0,
-      "y": 753.5,
-      "dx": 500.0,
-      "dy": 520.1,
-      "file": "image\\Ploxaya_pogoda.png"
-    },
-    {
-      "x": 830.0,
-      "y": 753.5,
-      "dx": 500.0,
-      "dy": 520.1,
-      "file": "image\\Ploxaya_pogoda.png"
-    },
-    {
-      "x": 460.0,
-      "y": 373.5,
-      "dx": 400.0,
-      "dy": 420.1,
-      "file": "image\\Ploxaya_pogoda.png"
+      "point": [[900, 700], [1300, 500], [1500, 680], [1520, 900], [1200, 900]],
+      "color": [74,12,22]
     }
+
   ],
-  "finish_x": 1820.0,
-  "finish_y": 450.0,
+  "finish_x": 210.0,
+  "finish_y": 500.0,
   "finish_rx": 57.0,
   "finish_ry": 60.3
 }

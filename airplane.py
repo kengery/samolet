@@ -66,7 +66,7 @@ class airplane:
     def render(self):
         self.camolet.render()
         Figyrs.print_text(self.display,self.x+self.dx/2,self.y,25,(0,0,0),f"{self.name}")
-        pygame.draw.circle(self.display,(255,0,0),(self.x+self.dx/2,self.y+self.dy/2),self.dx/2,2)
+        #pygame.draw.circle(self.display,(255,0,0),(self.x+self.dx/2,self.y+self.dy/2),self.dx/2,2)
 
         if len(self.points) > 1:
             self.count_points = max(0, len(self.points) - 150)
