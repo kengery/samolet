@@ -83,9 +83,10 @@ class GameScene(Class.Scene):
         self.airplanes_finish = 0
         self.airplanes_poteryan = 0
         for i in range(0, len(self.airplanes)):
-            if self.airplanes[i].stolk == False and self.airplanes[i].finish == False:
+            if self.airplanes[i].stolk == False and self.airplanes[i].finish == False and self.airplanes[
+                i].poteryan == False:
                 for j in range(i + 1, len(self.airplanes)):
-                    if self.airplanes[j].stolk == False and self.airplanes[i].finish == False:
+                    if self.airplanes[j].stolk == False and self.airplanes[j].finish == False:
                         x_2 = self.airplanes[i].x + self.airplanes[i].dx / 2
                         x_1 = self.airplanes[j].x + self.airplanes[j].dx / 2
                         y_2 = self.airplanes[i].y + self.airplanes[i].dy / 2
@@ -147,6 +148,10 @@ class GameScene(Class.Scene):
 
     def render(self):
         self.Radar.render()
+
+        self.__render_tyrbylentnost()
+        self.__render_button_airplanes()
+
         self.button_exit.render()
         self.button_pravo.render()
         self.button_levo.render()
@@ -154,10 +159,7 @@ class GameScene(Class.Scene):
         self.button_reduce.render()
         self.Aroport.render()
 
-        self.__render_tyrbylentnost()
         self.__render_airplanes()
-        self.__render_button_airplanes()
-
 
         if self.end_game == True:
             self.__render_end_game()

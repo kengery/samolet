@@ -4,8 +4,9 @@ import threading
 
 # Имя самолёта — ровно 2 слова: «имя» «номер», напр. «Рейс 3»
 _PLANE_2 = r"(\S+)\s+(\S+)"
+
 _TURN_RE = re.compile(
-    rf"^\s*{_PLANE_2}\s+поворот\s+(влево|вправо)\s+(\d+(?:[.,]\d+)?)\s*$",
+    rf"^\s*{_PLANE_2}\s+поворот\s+(влево|вправо)\s+(\d+(?:[.,]\d+)?)\s*$",#это всё шаблон, а \s это строка
     re.IGNORECASE | re.UNICODE,
 )
 _SPEED_RE = re.compile(
@@ -35,7 +36,7 @@ def parse_command_text(text: str):
     t = text.strip()
     if not t:
         return None
-    m = _TURN_RE.match(t)
+    m = _TURN_RE.match(t)#текст который мы сказали сравниваем равен ли он нашему шаблону _TURN_RE
     if m:
         w1, w2, side, num_s = m.group(1), m.group(2), m.group(3).lower(), m.group(4)
         plane_name = f"{w1.strip()} {w2.strip()}"
