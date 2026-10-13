@@ -42,8 +42,8 @@ def parse_command_text(text: str):
         plane_name = f"{w1.strip()} {w2.strip()}"
         n = _parse_num(num_s)
         if side == "влево":
-            return {"type": "turn", "name": plane_name, "value": -abs(n)}
-        return {"type": "turn", "name": plane_name, "value": abs(n)}
+            return {"type": "turn", "name": plane_name, "value": abs(n)}
+        return {"type": "turn", "name": plane_name, "value": -abs(n)}
     m = _SPEED_RE.match(t)
     if m:
         w1, w2, how, num_s = m.group(1), m.group(2), m.group(3).lower(), m.group(4)

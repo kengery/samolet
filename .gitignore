@@ -1,0 +1,41 @@
+# Кэш байткода Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Виртуальные окружения
+.venv/
+venv/
+env/
+ENV/
+
+# Сборка PyInstaller (exe и промежуточные файлы)
+build/
+dist/
+
+# Упаковка
+*.egg-info/
+.eggs/
+*.egg
+pip-log.txt
+
+# Проверки и тесты
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Локальные настройки и логи
+.env
+.env.*
+*.log
+
+# IDE
+.idea/
+.vscode/
+
+# Служебные файлы ОС
+Thumbs.db
+Desktop.ini
+.DS_Store

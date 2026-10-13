@@ -48,7 +48,7 @@ class airplane:
         self.finish = False
         self.poteryan=False
         self.Zapr_zon=False
-        self.scorOpt=3
+        self.scorOpt=2
         self.rashodbenz=0.01
         self.max=False
         self.min=False
