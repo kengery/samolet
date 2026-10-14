@@ -48,7 +48,10 @@ class new_game_file:
             speed_min=plane['speed_min'],
             speed_max=plane['speed_max'],
             angle=plane['angle'],
-            benzin=plane['benzin']) for plane in data['airplanes']]
+            benzin=plane['benzin'],
+            visota_airplane=plane.get('visota_airplane', plane.get('altitude', 3000)),
+            visota_min=plane.get('visota_min', plane.get('altitude_min', 1000)),
+            visota_max=plane.get('visota_max', plane.get('altitude_max', 10000))) for plane in data['airplanes']]
 
         tyrbylentnosts = [Tyrbylentnost.Tyrbylentnost(
             x=plane['x'],

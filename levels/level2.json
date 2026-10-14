@@ -11,7 +11,10 @@
       "speed_min": 0.6,
       "speed_max": 4,
       "angle": 320,
-      "benzin": 1500
+      "benzin": 1500,
+      "visota_airplane": 2000,
+      "visota_min": 1000,
+      "visota_max": 10000
     },
     {
       "x": 1700.0,
@@ -24,7 +27,10 @@
       "speed_min": 0.5,
       "speed_max": 3,
       "angle": 200,
-      "benzin": 1500
+      "benzin": 1500,
+      "visota_airplane": 4000,
+      "visota_min": 1000,
+      "visota_max": 10000
     },
     {
       "x": 1514,
@@ -37,7 +43,10 @@
       "speed_min": 0.5,
       "speed_max": 3,
       "angle": 150,
-      "benzin": 1500
+      "benzin": 1500,
+      "visota_airplane": 6000,
+      "visota_min": 1000,
+      "visota_max": 10000
     },
     {
       "x": 554,
@@ -50,7 +59,10 @@
       "speed_min": 0.5,
       "speed_max": 3,
       "angle": 30,
-      "benzin": 1500
+      "benzin": 1500,
+      "visota_airplane": 8000,
+      "visota_min": 1000,
+      "visota_max": 10000
     }
   ],
   "tyrbylentnosts": [

@@ -8,6 +8,9 @@ import Figyrs
 from dataclasses import dataclass, field, asdict
 import time
 
+# Футы за кадр (~30 мс), пока текущая высота не равна цели.
+PODEM_VISOT = 5
+
 @dataclass
 class airplane:
     x : float
@@ -21,8 +24,11 @@ class airplane:
     speed_max :float
     angle: float
     benzin: float
+    visota_airplane: float
+    visota_min: float
+    visota_max: float
 
-    def __init__(self,x,y,dx,dy,display,file,name,speed,speed_min,speed_max,angle, benzin):
+    def __init__(self,x,y,dx,dy,display,file,name,speed,speed_min,speed_max,angle, benzin, visota_airplane, visota_min, visota_max):
         self.x=x
         self.y=y
         self.dx=dx
@@ -34,6 +40,15 @@ class airplane:
 
         self.speed_min=speed_min
         self.speed_max=speed_max
+
+        self.visota_min=visota_min
+        self.visota_max=visota_max
+        self.visota_airplane=visota_airplane
+        if self.visota_airplane < self.visota_min:
+            self.visota_airplane = self.visota_min
+        if self.visota_airplane > self.visota_max:
+            self.visota_airplane = self.visota_max
+        self.zadana_visota=self.visota_airplane
 
         self.benzin=benzin
         self.izn_benzin=self.benzin
@@ -66,6 +81,7 @@ class airplane:
     def render(self):
         self.camolet.render()
         Figyrs.print_text(self.display,self.x+self.dx/2,self.y,25,(0,0,0),f"{self.name}")
+        Figyrs.print_text(self.display,self.x+self.dx/2,self.y+22,20,(0,0,0),self.visota_text())
         #pygame.draw.circle(self.display,(255,0,0),(self.x+self.dx/2,self.y+self.dy/2),self.dx/2,2)
 
         if len(self.points) > 1:
@@ -74,6 +90,20 @@ class airplane:
                 n = self.points[i - 1]
                 m = self.points[i]
                 pygame.draw.line(self.display, (0, 0, 0), (n.x, n.y), (m.x, m.y))
+
+    def visota_text(self):
+        current = int(self.visota_airplane)
+        target = int(self.zadana_visota)
+        if self.visota_airplane != self.zadana_visota:
+            return f"{current} → {target} фт"
+        return f"{current} фт"
+
+    def set_zadana_visota(self, feet):
+        if feet < self.visota_min:
+            feet = self.visota_min
+        if feet > self.visota_max:
+            feet = self.visota_max
+        self.zadana_visota = feet
 
     def add_angle(self,angle):
         if self.command is None:
@@ -105,6 +135,14 @@ class airplane:
             return
         if self.finish==True or self.stolk==True or self.poteryan==True:
             return
+        if self.visota_airplane < self.zadana_visota:
+            self.visota_airplane = min(self.visota_airplane + PODEM_VISOT, self.zadana_visota)
+        elif self.visota_airplane > self.zadana_visota:
+            self.visota_airplane = max(self.visota_airplane - PODEM_VISOT, self.zadana_visota)
+        if self.visota_airplane < self.visota_min:
+            self.visota_airplane = self.visota_min
+        if self.visota_airplane > self.visota_max:
+            self.visota_airplane = self.visota_max
         if time.time()-self.command_last_time>self.command_wait and self.command is not None:
             if isinstance(self.command, command_airplane_angle):
                 angle_Min=self.command_angle

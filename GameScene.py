@@ -17,6 +17,8 @@ import time
 import MyMicrophone
 # Очередь для передачи команд
 command_queue = queue.Queue()
+# Футы. Столкновение, если модуль разницы высот строго меньше этого числа.
+VISOTA_SBLIGENIA_AIRPLANE = 1000
 class GameScene(Class.Scene):
     def __init__(self, gameEngine, display):
         super().__init__(gameEngine)
@@ -26,6 +28,9 @@ class GameScene(Class.Scene):
         self.button_levo = Image(gameEngine.screenx * 0.5, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.1,self.display, 'image\\levo.png')
         self.button_increase = Image(gameEngine.screenx * 0.4, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.093,self.display, 'image\\increase.png')
         self.button_reduce = Image(gameEngine.screenx * 0.3, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09,self.display, 'image\\reduse.png')
+        self.button_visota = Image(gameEngine.screenx * 0.72, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09, self.display, 'image\\button1.png')
+        self.visota_input = False
+        self.visota_text = ""
         self.Radar = Image(gameEngine.screenx * -0.125, gameEngine.screeny * -0.6, gameEngine.screenx * 1.3, gameEngine.screeny * 2.3,self.display, 'image\\Radar3.png')
         self.Aroport=0
         self.gameEngine=gameEngine
@@ -47,6 +52,17 @@ class GameScene(Class.Scene):
     def handle_events(self, events):
         self.__process_voice_commands()
         for event in events:
+            if self.visota_input and event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    self.visota_input = False
+                    self.visota_text = ""
+                elif event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
+                    self.__apply_visota_input()
+                elif event.key == pygame.K_BACKSPACE:
+                    self.visota_text = self.visota_text[:-1]
+                elif event.unicode.isdigit() and len(self.visota_text) < 7:
+                    self.visota_text += event.unicode
+                continue
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 if getattr(event, "repeat", 0) == 0:
                     self.my_microphone.space_pressed()
@@ -71,6 +87,9 @@ class GameScene(Class.Scene):
                         self.click_airplane.add_speed(1)
                     if self.button_reduce.click(mouse_x, mouse_y):
                         self.click_airplane.add_speed(-1)
+                    if self.button_visota.click(mouse_x, mouse_y):
+                        self.visota_input = True
+                        self.visota_text = ""
 
 
     def update(self):
@@ -94,8 +113,10 @@ class GameScene(Class.Scene):
 
                         # находим растояние между центром самолётов
                         d = math.sqrt((x_2 - x_1) * (x_2 - x_1) + (y_2 - y_1) * (y_2 - y_1))
-                        if self.airplanes[i].dx / 2 + self.airplanes[j].dx / 2 >= d or self.airplanes[i].dy / 2 + \
-                                self.airplanes[j].dy / 2 >= d:
+                        stolk_airplane = self.airplanes[i].dx / 2 + self.airplanes[j].dx / 2 >= d or self.airplanes[i].dy / 2 + \
+                                self.airplanes[j].dy / 2 >= d
+                        min_na_stolk_visota = math.fabs(self.airplanes[i].visota_airplane - self.airplanes[j].visota_airplane) < VISOTA_SBLIGENIA_AIRPLANE
+                        if stolk_airplane and min_na_stolk_visota:
                             self.airplanes[i].stolk = True
                             self.airplanes[j].stolk = True
 
@@ -157,9 +178,13 @@ class GameScene(Class.Scene):
         self.button_levo.render()
         self.button_increase.render()
         self.button_reduce.render()
+        self.button_visota.render()
+        Figyrs.print_text(self.display, self.button_visota.x + self.gameEngine.screenx * 0.05, self.button_visota.y + self.gameEngine.screeny * 0.045, 22, (0, 0, 0), "Высота")
+        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.45, self.gameEngine.screeny * 0.12, 20, (0, 0, 0), f"Столкновение, если разница высот < {VISOTA_SBLIGENIA_AIRPLANE} фт")
         self.Aroport.render()
 
         self.__render_airplanes()
+        self.__render_visota_input()
 
         if self.end_game == True:
             self.__render_end_game()
@@ -239,6 +264,24 @@ class GameScene(Class.Scene):
             else:
                 self.ball = self.ball + self.airplanes[i].izn_benzin
 
+    def __apply_visota_input(self):
+        if self.visota_text == "" or self.click_airplane is None:
+            return
+        self.click_airplane.set_zadana_visota(int(self.visota_text))
+        self.visota_input = False
+        self.visota_text = ""
+
+    def __render_visota_input(self):
+        if self.visota_input == False:
+            return
+        x = self.gameEngine.screenx * 0.35
+        y = self.gameEngine.screeny * 0.35
+        Figyrs.kvadr_poly(x, y, self.gameEngine.screenx * 0.3, self.gameEngine.screeny * 0.18, 220, self.display)
+        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, y + self.gameEngine.screeny * 0.04, 32, (0, 0, 0), "Высота, футы")
+        shown = self.visota_text if self.visota_text != "" else "_"
+        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, y + self.gameEngine.screeny * 0.09, 36, (0, 0, 0), shown)
+        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, y + self.gameEngine.screeny * 0.14, 22, (0, 0, 0), "Enter — записать, Escape — отмена")
+
     def __process_voice_commands(self):
         if not getattr(self, "airplanes", None):
             while self.my_microphone.pop_command() is not None:
@@ -285,7 +328,8 @@ class GameScene(Class.Scene):
 
 
     def init_new_game(self, level):
-
+        self.visota_input = False
+        self.visota_text = ""
         self.__new_game_from_file(level)
 
         #self.__init_airplanes()
@@ -311,7 +355,7 @@ class GameScene(Class.Scene):
                                   self.display, i.file, i.name,
                                   i.speed,
                                   i.speed_min, i.speed_max, i.angle,
-                                  i.benzin)
+                                  i.benzin, i.visota_airplane, i.visota_min, i.visota_max)
             self.airplanes.append(s)
 
         self.button_finish = []
@@ -358,7 +402,7 @@ class GameScene(Class.Scene):
                                   self.display, 'image\\camolet2.png', f"Рейс{n}",
                                   (self.speed_min + self.speed_max) / 2,
                                   self.speed_min, self.speed_max, self.angle,
-                                  1500)
+                                  1500, 3000, 1000, 10000)
             self.airplanes.append(s)
 
 
