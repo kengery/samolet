@@ -1,21 +1,21 @@
 import pygame
-#Рисует квадрат
+# Рисует квадрат линиями по координатам и стороне l.
 def kvadrat(display,color,x,y,l):
     pygame.draw.line(display, color, (x, y), (x + l, y))
     pygame.draw.line(display, color, (x + l, y), (x + l, y + l))
     pygame.draw.line(display, color, (x + l, y + l), (x, y + l))
     pygame.draw.line(display, color, (x, y + l), (x, y))
 
-#Отображает текст
+# Рисует текст по центру точки (x, y).
 def print_text(display,x,y,len,color,text):
-    font = pygame.font.SysFont('Angeme',len)
-    text_surface = font.render(text, True, (color))
-    text_rect = text_surface.get_rect()
+    font = pygame.font.SysFont('Angeme',len)  # шрифт нужного размера
+    text_surface = font.render(text, True, (color))  # картинка текста
+    text_rect = text_surface.get_rect()  # прямоугольник текста
     text_rect.center = (x,y)
     display.blit(text_surface, text_rect)
 
-#полу прозрачный квадрат
+# Рисует полупрозрачный прямоугольник.
 def kvadr_poly(x,y,dx,dy,pol_prozr,display):
-    s = pygame.Surface((dx, dy), pygame.SRCALPHA)  # per-pixel alpha
-    s.fill((255, 255, 255, pol_prozr))  # notice the alpha value in the color
+    s = pygame.Surface((dx, dy), pygame.SRCALPHA)  # поверхность с прозрачностью
+    s.fill((255, 255, 255, pol_prozr))  # белая заливка с альфой pol_prozr
     display.blit(s, (x, y))  # прозрачный квадрат

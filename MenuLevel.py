@@ -4,31 +4,34 @@ import Figyrs
 import GameScene
 from Image import Image
 
+# Выбор карты: четыре кнопки уровней и выход в меню.
 class MenuLevel(Class.Scene):
+    # Создаёт фон, выход и кнопки карт 1–4.
     def __init__(self,gameEngine, display):
         super().__init__(gameEngine)
 
-        self.display=display
+        self.display=display  # окно pygame
         self.fon_planer = Image(gameEngine.screenx * 0, gameEngine.screeny * 0, gameEngine.screenx, gameEngine.screeny * 0.95, self.display,
-                                'image\\fon_planer.jpg')
-        self.button_exit = Image(gameEngine.screenx * 0.902, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09, self.display,'image\\bsxod.PNG')
+                                'image\\fon_planer.jpg')  # фон экрана
+        self.button_exit = Image(gameEngine.screenx * 0.902, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09, self.display,'image\\bsxod.PNG')  # назад в главное меню
         self.button_Igra1 = Image(gameEngine.screenx * 0.05, gameEngine.screeny * 0.4, gameEngine.screenx * 0.17, gameEngine.screeny * 0.14, self.display,
-                                 'image\\Button.png')
+                                 'image\\Button.png')  # карта 1
         self.button_Igra2 = Image(gameEngine.screenx * 0.25, gameEngine.screeny * 0.4, gameEngine.screenx * 0.17, gameEngine.screeny * 0.14,
                                  self.display,
-                                 'image\\Button.png')
+                                 'image\\Button.png')  # карта 2
         self.button_Igra3 = Image(gameEngine.screenx * 0.45, gameEngine.screeny * 0.4, gameEngine.screenx * 0.17, gameEngine.screeny * 0.14,
                                  self.display,
-                                 'image\\Button.png')
+                                 'image\\Button.png')  # карта 3
         self.button_Igra4 = Image(gameEngine.screenx * 0.65, gameEngine.screeny * 0.4, gameEngine.screenx * 0.17, gameEngine.screeny * 0.14,
                                  self.display,
-                                 'image\\Button.png')
+                                 'image\\Button.png')  # карта 4
         # Уровни
-        self.levels = ["levels\\level1.json","levels\\level2.json","levels\\level3.json","levels\\level4.json"]
+        self.levels = ["levels\\level1.json","levels\\level2.json","levels\\level3.json","levels\\level4.json"]  # пути к картам
 
+    # Клик по карте запускает симуляцию, выход возвращает в меню.
     def handle_events(self, events):
         for event in events:
-            mouse_x, mouse_y = pygame.mouse.get_pos()
+            mouse_x, mouse_y = pygame.mouse.get_pos()  # координаты курсора
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if self.button_Igra1.click(mouse_x, mouse_y):
                     # Создаем игровую сцену и передаем выбранный уровень
@@ -47,9 +50,11 @@ class MenuLevel(Class.Scene):
                 if self.button_exit.click(mouse_x,mouse_y):
                     self.gameEngine.change_scene("menu")
 
+    # На экране выбора карты логики кадра нет.
     def update(self):
         return
 
+    # Рисует фон, кнопки и подписи «Карта 1» … «Карта 4».
     def render(self):
         self.fon_planer.render()
         self.button_exit.render()

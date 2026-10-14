@@ -4,16 +4,19 @@ import Image
 import math
 import Figyrs
 
+# Табличка слева: имя, высота, расход, бензин, скорость самолёта.
 class board:
+    # Создаёт табличку для одного самолёта.
     def __init__(self,x,y,dx,dy,display,file,airplane):
-        self.x=x
-        self.y=y
-        self.dx=dx
-        self.dy=dy
-        self.display=display
-        self.airplane=airplane
-        self.image = Image.Image(self.x, self.y, self.dx, self.dy,self.display, file)
+        self.x=x  # левый край таблички
+        self.y=y  # верхний край таблички
+        self.dx=dx  # ширина таблички
+        self.dy=dy  # высота таблички
+        self.display=display  # окно pygame
+        self.airplane=airplane  # самолёт, данные которого показывают
+        self.image = Image.Image(self.x, self.y, self.dx, self.dy,self.display, file)  # фон таблички
 
+    # Рисует табличку и строки с данными самолёта.
     def render(self):
         self.image.render()
         Figyrs.print_text(self.display,self.x+self.dx/4,self.y+self.dy/3,24,(0,0,0),f"{self.airplane.name}")
@@ -27,5 +30,6 @@ class board:
             Figyrs.print_text(self.display, self.x + self.dx+self.dx / 7, self.y + self.dy/2, 27, (0, 0, 0),"MIN")
 
 
+    # Проверяет, попал ли клик в табличку.
     def click(self,mouse_x,mouse_y)->bool:
         return self.image.click(mouse_x, mouse_y)

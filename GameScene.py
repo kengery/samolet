@@ -15,40 +15,42 @@ import Zona
 import point
 import time
 import MyMicrophone
-# Очередь для передачи команд
-command_queue = queue.Queue()
-# Футы. Столкновение, если модуль разницы высот строго меньше этого числа.
-VISOTA_SBLIGENIA_AIRPLANE = 1000
+command_queue = queue.Queue()  # очередь для передачи голосовых команд
+VISOTA_SBLIGENIA_AIRPLANE = 1000  # футы: столкновение, если разница высот меньше этого
+
+# Сцена симуляции: самолёты, зоны, кнопки, счёт и голос.
 class GameScene(Class.Scene):
+    # Создаёт кнопки, радар и поля раунда. Самолёты появятся при загрузке карты.
     def __init__(self, gameEngine, display):
         super().__init__(gameEngine)
-        self.display = display
-        self.button_exit = Image(gameEngine.screenx * 0.902, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09, self.display,'image\\bsxod.PNG')
-        self.button_pravo = Image(gameEngine.screenx * 0.6, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09,self.display, 'image\\pravo.png')
-        self.button_levo = Image(gameEngine.screenx * 0.5, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.1,self.display, 'image\\levo.png')
-        self.button_increase = Image(gameEngine.screenx * 0.4, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.093,self.display, 'image\\increase.png')
-        self.button_reduce = Image(gameEngine.screenx * 0.3, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09,self.display, 'image\\reduse.png')
-        self.button_visota = Image(gameEngine.screenx * 0.72, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09, self.display, 'image\\button1.png')
-        self.visota_input = False
-        self.visota_text = ""
-        self.Radar = Image(gameEngine.screenx * -0.125, gameEngine.screeny * -0.6, gameEngine.screenx * 1.3, gameEngine.screeny * 2.3,self.display, 'image\\Radar3.png')
-        self.Aroport=0
-        self.gameEngine=gameEngine
-        self.display=display
-        self.click_airplane = None
-        self.circle_x=0
-        self.circle_y=0
-        self.circle_radiusx = 0
-        self.circle_radiusy = 0
-        self.end_game=False
-        self.airplanes_stolk=0
-        self.airplanes_finish=0
-        self.airplanes_poteryan=0
-        self.ball = 0
+        self.display = display  # окно pygame
+        self.button_exit = Image(gameEngine.screenx * 0.902, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09, self.display,'image\\bsxod.PNG')  # выход в меню
+        self.button_pravo = Image(gameEngine.screenx * 0.6, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09,self.display, 'image\\pravo.png')  # поворот вправо
+        self.button_levo = Image(gameEngine.screenx * 0.5, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.1,self.display, 'image\\levo.png')  # поворот влево
+        self.button_increase = Image(gameEngine.screenx * 0.4, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.093,self.display, 'image\\increase.png')  # быстрее
+        self.button_reduce = Image(gameEngine.screenx * 0.3, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09,self.display, 'image\\reduse.png')  # медленнее
+        self.button_visota = Image(gameEngine.screenx * 0.72, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09, self.display, 'image\\button1.png')  # ввод высоты
+        self.visota_input = False  # открыта ли плашка ввода высоты
+        self.visota_text = ""  # набранные футы
+        self.Radar = Image(gameEngine.screenx * -0.125, gameEngine.screeny * -0.6, gameEngine.screenx * 1.3, gameEngine.screeny * 2.3,self.display, 'image\\Radar3.png')  # фон радара
+        self.Aroport=0  # картинка аэропорта, ставится при загрузке карты
+        self.gameEngine=gameEngine  # движок сцен
+        self.display=display  # окно pygame
+        self.click_airplane = None  # выбранный самолёт
+        self.circle_x=0  # центр аэропорта X
+        self.circle_y=0  # центр аэропорта Y
+        self.circle_radiusx = 0  # половина ширины аэропорта
+        self.circle_radiusy = 0  # половина высоты аэропорта
+        self.end_game=False  # все самолёты уже имеют исход
+        self.airplanes_stolk=0  # сколько столкнулись
+        self.airplanes_finish=0  # сколько сели
+        self.airplanes_poteryan=0  # сколько потеряны
+        self.ball = 0  # сумма расхода и штрафов
         #self.points=[point.point(200, 300), point.point(700, 200), point.point(700, 800), point.point(500, 400)]
-        self.n_zona=[]#Zona.zona(self.display, self.points, (0, 0, 0))
-        self.my_microphone = MyMicrophone.MyMicrophone()
+        self.n_zona=[]  # запретные многоугольники карты
+        self.my_microphone = MyMicrophone.MyMicrophone()  # запись голоса по пробелу
 
+    # Клики, клавиши, голос и кнопки курса/скорости/высоты.
     def handle_events(self, events):
         self.__process_voice_commands()
         for event in events:
@@ -69,7 +71,7 @@ class GameScene(Class.Scene):
             if event.type == pygame.KEYUP and event.key == pygame.K_SPACE:
                 self.my_microphone.space_released()
 
-            mouse_x, mouse_y = pygame.mouse.get_pos()
+            mouse_x, mouse_y = pygame.mouse.get_pos()  # координаты курсора
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if self.button_exit.click(mouse_x, mouse_y):
@@ -92,12 +94,13 @@ class GameScene(Class.Scene):
                         self.visota_text = ""
 
 
+    # Движение, столкновения, посадка, экран, запретные зоны и конец раунда.
     def update(self):
 
         self.__update_move_airplanes()
         self.__calc_balls()
 
-        game_end = 0
+        game_end = 0  # сколько самолётов уже с исходом
         self.airplanes_stolk = 0
         self.airplanes_finish = 0
         self.airplanes_poteryan = 0
@@ -106,28 +109,28 @@ class GameScene(Class.Scene):
                 i].poteryan == False:
                 for j in range(i + 1, len(self.airplanes)):
                     if self.airplanes[j].stolk == False and self.airplanes[j].finish == False:
-                        x_2 = self.airplanes[i].x + self.airplanes[i].dx / 2
-                        x_1 = self.airplanes[j].x + self.airplanes[j].dx / 2
-                        y_2 = self.airplanes[i].y + self.airplanes[i].dy / 2
-                        y_1 = self.airplanes[j].y + self.airplanes[j].dy / 2
+                        x_2 = self.airplanes[i].x + self.airplanes[i].dx / 2  # центр первого по X
+                        x_1 = self.airplanes[j].x + self.airplanes[j].dx / 2  # центр второго по X
+                        y_2 = self.airplanes[i].y + self.airplanes[i].dy / 2  # центр первого по Y
+                        y_1 = self.airplanes[j].y + self.airplanes[j].dy / 2  # центр второго по Y
 
                         # находим растояние между центром самолётов
-                        d = math.sqrt((x_2 - x_1) * (x_2 - x_1) + (y_2 - y_1) * (y_2 - y_1))
+                        d = math.sqrt((x_2 - x_1) * (x_2 - x_1) + (y_2 - y_1) * (y_2 - y_1))  # расстояние между центрами
                         stolk_airplane = self.airplanes[i].dx / 2 + self.airplanes[j].dx / 2 >= d or self.airplanes[i].dy / 2 + \
-                                self.airplanes[j].dy / 2 >= d
-                        min_na_stolk_visota = math.fabs(self.airplanes[i].visota_airplane - self.airplanes[j].visota_airplane) < VISOTA_SBLIGENIA_AIRPLANE
+                                self.airplanes[j].dy / 2 >= d  # близко на карте
+                        min_na_stolk_visota = math.fabs(self.airplanes[i].visota_airplane - self.airplanes[j].visota_airplane) < VISOTA_SBLIGENIA_AIRPLANE  # разница высот меньше 1000 фт
                         if stolk_airplane and min_na_stolk_visota:
                             self.airplanes[i].stolk = True
                             self.airplanes[j].stolk = True
 
             if self.airplanes[i].stolk == False and self.airplanes[i].finish == False and self.airplanes[
                 i].poteryan == False:
-                x1 = self.airplanes[i].x + self.airplanes[i].dx / 2
-                y1 = self.airplanes[i].y + self.airplanes[i].dy / 2
-                x2 = self.circle_x
-                y2 = self.circle_y
+                x1 = self.airplanes[i].x + self.airplanes[i].dx / 2  # центр самолёта X
+                y1 = self.airplanes[i].y + self.airplanes[i].dy / 2  # центр самолёта Y
+                x2 = self.circle_x  # центр аэропорта X
+                y2 = self.circle_y  # центр аэропорта Y
                 # находим растояние между центром самолёта и финиша
-                d = math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1))
+                d = math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1))  # расстояние до аэропорта
                 if self.airplanes[i].dx + self.circle_radiusx / 2 >= d or self.airplanes[
                     i].dy + self.circle_radiusy / 2 >= d:
                     self.airplanes[i].finish = True
@@ -167,6 +170,7 @@ class GameScene(Class.Scene):
         else:
             self.Radar.angle = self.Radar.angle - 4
 
+    # Рисует радар, зоны, кнопки, аэропорт, самолёты и итог раунда.
     def render(self):
         self.Radar.render()
 
@@ -190,6 +194,7 @@ class GameScene(Class.Scene):
             self.__render_end_game()
             self.end_game=False
 
+    # Рисует турбулентность и запретные зоны.
     def __render_tyrbylentnost(self):
         for i in range(0, len(self.Tyrbylentnost)):
             self.Tyrbylentnost[i].render()
@@ -198,6 +203,7 @@ class GameScene(Class.Scene):
         #for i in range(0, len(self.Pogoda)):
         #    self.Pogoda[i].render()
 
+    # Рисует летящие самолёты; выбранный — другой спрайт.
     def __render_airplanes(self):
         for i in range(0, len(self.airplanes)):
             if self.airplanes[i].stolk == False and self.airplanes[i].finish == False and self.airplanes[
@@ -212,6 +218,7 @@ class GameScene(Class.Scene):
 
                 self.airplanes[i].render()
 
+    # Показывает итоговое окно: баллы, столкнулись, потеряны, сели.
     def __render_end_game(self):
         Figyrs.kvadr_poly(self.gameEngine.screenx*0.25,self.gameEngine.screeny*0.25,self.gameEngine.screenx*0.5,self.gameEngine.screeny*0.4,200,self.display)
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.505, self.gameEngine.screeny * 0.35,80, (0, 0, 0),f"Баллы = {int(self.ball)}")
@@ -220,6 +227,7 @@ class GameScene(Class.Scene):
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.62, self.gameEngine.screeny * 0.45,40, (0, 0, 0),f"Прилетели в аэропорт = {self.airplanes_finish}")
 
 
+    # Рисует таблички слева: обычная, красная или зелёная.
     def __render_button_airplanes(self):
         if self.button_airplane is None:
             return
@@ -239,11 +247,12 @@ class GameScene(Class.Scene):
             if self.airplanes[i].finish == True:
                 self.button_finish[i].render()
 
+    # Двигает самолёты и ставит множитель топлива в турбулентности.
     def __update_move_airplanes(self):
         for i in range(0,len(self.airplanes)):
             self.airplanes[i].move()
 
-            k=0
+            k=0  # 1, если самолёт в турбулентности
             for j in range(0, len(self.Tyrbylentnost)):
                 if self.Tyrbylentnost[j].select(self.airplanes[i].x,self.airplanes[i].y,self.airplanes[i].dx,self.airplanes[i].dy)==True:
                     self.airplanes[i].Zapr_zon=True
@@ -256,6 +265,7 @@ class GameScene(Class.Scene):
             else:
                 self.airplanes[i].ymn_koef_ball(5)
 
+    # Считает баллы: сожжённое топливо или полный бак за разбитых и потерянных.
     def __calc_balls(self):
         self.ball=0
         for i in range(0, len(self.airplanes)):
@@ -264,6 +274,7 @@ class GameScene(Class.Scene):
             else:
                 self.ball = self.ball + self.airplanes[i].izn_benzin
 
+    # Записывает набранную высоту выбранному самолёту.
     def __apply_visota_input(self):
         if self.visota_text == "" or self.click_airplane is None:
             return
@@ -271,17 +282,19 @@ class GameScene(Class.Scene):
         self.visota_input = False
         self.visota_text = ""
 
+    # Рисует плашку ввода высоты в футах.
     def __render_visota_input(self):
         if self.visota_input == False:
             return
-        x = self.gameEngine.screenx * 0.35
-        y = self.gameEngine.screeny * 0.35
+        x = self.gameEngine.screenx * 0.35  # левый край плашки
+        y = self.gameEngine.screeny * 0.35  # верхний край плашки
         Figyrs.kvadr_poly(x, y, self.gameEngine.screenx * 0.3, self.gameEngine.screeny * 0.18, 220, self.display)
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, y + self.gameEngine.screeny * 0.04, 32, (0, 0, 0), "Высота, футы")
-        shown = self.visota_text if self.visota_text != "" else "_"
+        shown = self.visota_text if self.visota_text != "" else "_"  # набранные футы или подчёркивание
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, y + self.gameEngine.screeny * 0.09, 36, (0, 0, 0), shown)
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, y + self.gameEngine.screeny * 0.14, 22, (0, 0, 0), "Enter — записать, Escape — отмена")
 
+    # Берёт голосовые команды и применяет поворот или скорость к самолёту.
     def __process_voice_commands(self):
         if not getattr(self, "airplanes", None):
             while self.my_microphone.pop_command() is not None:
@@ -289,12 +302,12 @@ class GameScene(Class.Scene):
             return
 
         while True:
-            cmd = self.my_microphone.pop_command()
+            cmd = self.my_microphone.pop_command()  # одна распознанная команда
 
             if cmd is None:
                 break
             print(f"ищем {cmd["name"]} ")
-            plane = None
+            plane = None  # найденный самолёт по имени
             for p in self.airplanes:
                 if MyMicrophone.MyMicrophone.same_plane_name(p.name.lower(), cmd["name"]):
                     plane = p
@@ -307,6 +320,7 @@ class GameScene(Class.Scene):
             elif cmd["type"] == "speed":
                 plane.add_speed(cmd["value"]/100)
 
+    # Выбирает самолёт кликом по табличке или по спрайту.
     def __select_airplane(self, mouse_x, mouse_y):
         # Выбор таблички самолета
         for i in range(0, len(self.button_airplane)):
@@ -327,6 +341,7 @@ class GameScene(Class.Scene):
                 self.click_airplane.click_camolet = True
 
 
+    # Начинает раунд: грузит карту из JSON.
     def init_new_game(self, level):
         self.visota_input = False
         self.visota_text = ""
@@ -335,13 +350,14 @@ class GameScene(Class.Scene):
         #self.__init_airplanes()
         #self.__init_tyrbylentnost()
 
+    # Читает JSON карты и создаёт самолёты, таблички, зоны и аэропорт.
     def __new_game_from_file(self, file :str):
 
         with open(file, 'r', encoding='utf-8') as filef:
-            file_text = filef.read()
+            file_text = filef.read()  # текст файла уровня
 
-        n=new_game_file.new_game_file([],[],[],0,0,0,0)
-        nn=n.from_json( self.display,file_text)
+        n=new_game_file.new_game_file([],[],[],0,0,0,0)  # пустая карта, чтобы вызвать from_json
+        nn=n.from_json( self.display,file_text)  # загруженная карта
         self.circle_x = nn.finish_x
         self.circle_y = nn.finish_y
         self.circle_radiusx = nn.finish_rx
@@ -349,54 +365,55 @@ class GameScene(Class.Scene):
         self.Aroport=Image(self.circle_x-self.circle_radiusx, self.circle_y-self.circle_radiusy, self.circle_radiusx*2 , self.circle_radiusy*2 , self.display,'image\\Aroport.png')
 
 
-        self.airplanes=[]
+        self.airplanes=[]  # самолёты этого раунда
         for i in nn.airplanes:
-            s = airplane.airplane(i.x, i.y, i.dx,i.dy,
+            s = airplane.airplane(i.x, i.y, i.dx,i.dy,  # копия самолёта с карты
                                   self.display, i.file, i.name,
                                   i.speed,
                                   i.speed_min, i.speed_max, i.angle,
                                   i.benzin, i.visota_airplane, i.visota_min, i.visota_max)
             self.airplanes.append(s)
 
-        self.button_finish = []
-        self.button_airplane = []
-        self.button_stolk = []
+        self.button_finish = []  # зелёные таблички (сел)
+        self.button_airplane = []  # обычные таблички
+        self.button_stolk = []  # красные таблички (разбит или потерян)
 
         for i in range(0, len(self.airplanes)):
             a = board.board(self.gameEngine.screenx * 0, i*1.4 * self.gameEngine.screeny * 0.07, self.gameEngine.screenx * 0.11,
                             self.gameEngine.screeny * 0.08,
-                            self.display, 'image\\button1.png', self.airplanes[i])
+                            self.display, 'image\\button1.png', self.airplanes[i])  # обычная табличка
             s = board.board(self.gameEngine.screenx * 0, i*1.4 * self.gameEngine.screeny * 0.07, self.gameEngine.screenx * 0.11,
                             self.gameEngine.screeny * 0.08,
-                            self.display, 'image\\button_green.png', self.airplanes[i])
+                            self.display, 'image\\button_green.png', self.airplanes[i])  # зелёная табличка
             d = board.board(self.gameEngine.screenx * 0, i*1.4 * self.gameEngine.screeny * 0.07, self.gameEngine.screenx * 0.11,
                             self.gameEngine.screeny * 0.08,
-                            self.display, 'image\\button_red.png', self.airplanes[i])
+                            self.display, 'image\\button_red.png', self.airplanes[i])  # красная табличка
             self.button_airplane.append(a)
             self.button_finish.append(s)
             self.button_stolk.append(d)
 
-        self.Tyrbylentnost = []
+        self.Tyrbylentnost = []  # зоны ветра карты
         for i in nn.tyrbylentnosts:
             s = Tyrbylentnost.Tyrbylentnost(self.display, i.x,i.y, i.dx,i.dy,i.file)
             self.Tyrbylentnost.append(s)
 
-        self.n_zona = []
+        self.n_zona = []  # запретные зоны карты
         for i in nn.zona:
             s = Zona.zona(self.display, i.points,i.color)
             self.n_zona.append(s)
 
+    # Случайные самолёты без JSON. На карты сейчас не влияет.
     def __init_airplanes(self):
         self.airplanes = []
-        n = 0
+        n = 0  # номер рейса
         for i in range(0, 2):
             n = n + 1
-            self.scx = random.randint(200, 1600)
-            self.scy = random.randint(200, 800)
-            self.speed_min = random.randint(2, 6)
+            self.scx = random.randint(200, 1600)  # случайный X
+            self.scy = random.randint(200, 800)  # случайный Y
+            self.speed_min = random.randint(2, 6)  # нижний предел скорости
             self.speed_min = self.speed_min / 10
-            self.speed_max = random.randint(3, 5)
-            self.angle = random.randint(0, 360)
+            self.speed_max = random.randint(3, 5)  # верхний предел скорости
+            self.angle = random.randint(0, 360)  # случайный курс
             s = airplane.airplane(self.scx, self.scy, self.gameEngine.screenx * 0.017,
                                   self.gameEngine.screeny * 0.03,
                                   self.display, 'image\\camolet2.png', f"Рейс{n}",
@@ -406,9 +423,9 @@ class GameScene(Class.Scene):
             self.airplanes.append(s)
 
 
-        self.button_finish = []
-        self.button_airplane = []
-        self.button_stolk = []
+        self.button_finish = []  # зелёные таблички
+        self.button_airplane = []  # обычные таблички
+        self.button_stolk = []  # красные таблички
 
         for i in range(0, len(self.airplanes)):
             a = board.board(self.gameEngine.screenx * 0, i * self.gameEngine.screeny * 0.07, self.gameEngine.screenx * 0.11, self.gameEngine.screeny * 0.08,
@@ -420,4 +437,3 @@ class GameScene(Class.Scene):
             self.button_airplane.append(a)
             self.button_finish.append(s)
             self.button_stolk.append(d)
-
