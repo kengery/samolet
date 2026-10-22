@@ -16,7 +16,7 @@ import point
 import time
 import MyMicrophone
 command_queue = queue.Queue()  # очередь для передачи голосовых команд
-VISOTA_SBLIGENIA_AIRPLANE = 1000  # футы: столкновение, если разница высот меньше этого
+VISOTA_SBLIGENIA_AIRPLANE = 500  # футы: столкновение, если разница высот меньше этого
 
 # Сцена симуляции: самолёты, зоны, кнопки, счёт и голос.
 class GameScene(Class.Scene):
@@ -247,23 +247,17 @@ class GameScene(Class.Scene):
             if self.airplanes[i].finish == True:
                 self.button_finish[i].render()
 
-    # Двигает самолёты и ставит множитель топлива в турбулентности.
+    # Двигает самолёты: снос в турбулентности и множитель топлива.
     def __update_move_airplanes(self):
         for i in range(0,len(self.airplanes)):
-            self.airplanes[i].move()
-
-            k=0  # 1, если самолёт в турбулентности
+            zona = None  # зона, в которой самолёт в этом кадре
             for j in range(0, len(self.Tyrbylentnost)):
                 if self.Tyrbylentnost[j].select(self.airplanes[i].x,self.airplanes[i].y,self.airplanes[i].dx,self.airplanes[i].dy)==True:
-                    self.airplanes[i].Zapr_zon=True
-                    k=1
+                    zona = self.Tyrbylentnost[j]
                     break
-                else:
-                    self.airplanes[i].Zapr_zon=False
-            if k==0:
-                self.airplanes[i].ymn_koef_ball(1)
-            else:
-                self.airplanes[i].ymn_koef_ball(5)
+            self.airplanes[i].turb_zahod(zona)
+            self.airplanes[i].ymn_koef_ball(self.airplanes[i].turb_koef())
+            self.airplanes[i].move()
 
     # Считает баллы: сожжённое топливо или полный бак за разбитых и потерянных.
     def __calc_balls(self):

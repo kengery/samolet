@@ -1,7 +1,6 @@
 from xxsubtype import bench
 
 import pygame
-import random
 import Image
 import math
 import Figyrs
@@ -9,6 +8,9 @@ from dataclasses import dataclass, field, asdict
 import time
 
 PODEM_VISOT = 5  # футы за кадр (~30 мс), пока текущая высота не равна цели
+TURB_PADENIE = 30  # футы в секунду, пока турбулентность сносит
+TURB_NACHALO = 1.5  # секунды сноса в сторону зоны
+TURB_OBRATNO = TURB_NACHALO / 2  # секунды сноса в обратную сторону
 
 @dataclass
 # Самолёт: полёт, топливо, команды курса и скорости.
@@ -64,12 +66,21 @@ class airplane:
         self.finish = False  # сел в аэропорт
         self.poteryan=False  # потерян (экран, зона, пустой бак)
         self.Zapr_zon=False  # True, если самолёт в турбулентности
+        self.turb_aktiv=False  # идёт снос и выравнивание
+        self.turb_vnutri=False  # сейчас внутри зоны
+        self.turb_viravnen=False  # заход уже выровнен, ждём выход
+        self.turb_t0=0  # момент захода, секунды
+        self.turb_napravlenie=0  # градусы сноса зоны
+        self.turb_skorost=0  # скорость сноса, всегда 1 пиксель за кадр; столько же секунд длится возврат
+        self.turb_visota0=0  # высота в момент захода
+        self.turb_visota_na_15=0  # высота после падения, с неё идёт возврат
+        self.turb_zameren_15=False  # высота на 1.5 с уже снята
         self.scorOpt=2  # оптимальная скорость (минимальный расход)
         self.rashodbenz=0.01  # базовый расход топлива за кадр
         self.max=False  # подпись MAX на табличке (в коде не включается)
         self.min=False  # подпись MIN на табличке (в коде не включается)
         self.ball_benz=0  # уже сожжённое топливо для баллов
-        self.__koef_ball=1  # множитель расхода: 1 обычный, 5 в турбулентности
+        self.__koef_ball=1  # множитель расхода: 1 обычный, 2 после выравнивания в зоне
         self.click_camolet=False  # выбран ли этот самолёт
 
         self.command_last_time=time.time()  # когда последний раз применили команду
@@ -83,7 +94,7 @@ class airplane:
     def render(self):
         self.camolet.render()
         Figyrs.print_text(self.display,self.x+self.dx/2,self.y,25,(0,0,0),f"{self.name}")
-        Figyrs.print_text(self.display,self.x+self.dx/2,self.y+22,20,(0,0,0),self.visota_text())
+        Figyrs.print_text(self.display,self.x+self.dx/2,self.y+22,18,(0,0,0),self.visota_text())
         #pygame.draw.circle(self.display,(255,0,0),(self.x+self.dx/2,self.y+self.dy/2),self.dx/2,2)
 
         if len(self.points) > 1:
@@ -98,7 +109,7 @@ class airplane:
         current = int(self.visota_airplane)  # текущая высота
         target = int(self.zadana_visota)  # целевая высота
         if self.visota_airplane != self.zadana_visota:
-            return f"{current} → {target} фт"
+            return f"с {current} до {target} фт"
         return f"{current} фт"
 
     # Ставит целевую высоту и зажимает её в пределах самолёта.
@@ -132,11 +143,37 @@ class airplane:
     def click(self,mouse_x,mouse_y)->bool:
         return self.camolet.click(mouse_x, mouse_y)
 
-    # Задаёт множитель расхода топлива (1 обычный, 5 в турбулентности).
+    # Задаёт множитель расхода топлива (1 обычный, 2 после выравнивания в зоне).
     def ymn_koef_ball(self,koef_ball):
         self.__koef_ball=koef_ball
 
-    # Двигает самолёт за кадр: курс, скорость, высота, топливо.
+    # Начинает снос при новом заходе. Пока таймер идёт, повторный заход его не сбрасывает.
+    def turb_zahod(self, zona):
+        if zona is None:
+            self.turb_vnutri = False
+            self.Zapr_zon = False
+            return
+        self.Zapr_zon = True
+        if self.turb_vnutri == True:
+            return
+        self.turb_vnutri = True
+        if self.turb_aktiv == True:
+            return
+        self.turb_aktiv = True
+        self.turb_viravnen = False
+        self.turb_zameren_15 = False
+        self.turb_t0 = time.time()
+        self.turb_napravlenie = zona.napravlenie
+        self.turb_skorost = 1
+        self.turb_visota0 = self.visota_airplane
+
+    # 2 после выравнивания, пока самолёт ещё в зоне, иначе 1.
+    def turb_koef(self):
+        if self.turb_vnutri == True and self.turb_viravnen == True and self.turb_aktiv == False:
+            return 2
+        return 1
+
+    # Двигает самолёт за кадр: курс, скорость, высота, снос, топливо.
     def move(self):
         if self.benzin<=0:
             self.benzin=0
@@ -144,14 +181,44 @@ class airplane:
             return
         if self.finish==True or self.stolk==True or self.poteryan==True:
             return
-        if self.visota_airplane < self.zadana_visota:
-            self.visota_airplane = min(self.visota_airplane + PODEM_VISOT, self.zadana_visota)
-        elif self.visota_airplane > self.zadana_visota:
-            self.visota_airplane = max(self.visota_airplane - PODEM_VISOT, self.zadana_visota)
-        if self.visota_airplane < self.visota_min:
-            self.visota_airplane = self.visota_min
-        if self.visota_airplane > self.visota_max:
-            self.visota_airplane = self.visota_max
+        sdvig = 0  # доля сноса: 1 в сторону зоны, -1 обратно, 0 нет
+        if self.turb_aktiv == True:
+            t = time.time() - self.turb_t0  # секунды с захода в зону
+            t_obratno = TURB_NACHALO + TURB_OBRATNO  # конец обратного сноса
+            konec = t_obratno + self.turb_skorost  # конец возврата, секунды
+            if t >= TURB_NACHALO and self.turb_zameren_15 == False:
+                spad = self.turb_visota0 - TURB_PADENIE * TURB_NACHALO  # высота к концу падения
+                if spad < self.visota_min:
+                    spad = self.visota_min
+                self.turb_visota_na_15 = spad
+                self.turb_zameren_15 = True
+            if t >= konec:
+                self.visota_airplane = self.zadana_visota
+                self.turb_aktiv = False
+                self.turb_viravnen = True
+            elif t >= t_obratno:
+                dolya = (t - t_obratno) / self.turb_skorost  # 0 в начале возврата, 1 в конце
+                self.visota_airplane = self.turb_visota_na_15 + (self.zadana_visota - self.turb_visota_na_15) * dolya
+                sdvig = -(1 - dolya)
+            elif t >= TURB_NACHALO:
+                self.visota_airplane = self.turb_visota_na_15
+                sdvig = -1
+            else:
+                self.visota_airplane = self.turb_visota0 - TURB_PADENIE * t
+                sdvig = 1
+            if self.visota_airplane < self.visota_min:
+                self.visota_airplane = self.visota_min
+            if self.visota_airplane > self.visota_max:
+                self.visota_airplane = self.visota_max
+        else:
+            if self.visota_airplane < self.zadana_visota:
+                self.visota_airplane = min(self.visota_airplane + PODEM_VISOT, self.zadana_visota)
+            elif self.visota_airplane > self.zadana_visota:
+                self.visota_airplane = max(self.visota_airplane - PODEM_VISOT, self.zadana_visota)
+            if self.visota_airplane < self.visota_min:
+                self.visota_airplane = self.visota_min
+            if self.visota_airplane > self.visota_max:
+                self.visota_airplane = self.visota_max
         if time.time()-self.command_last_time>self.command_wait and self.command is not None:
             if isinstance(self.command, command_airplane_angle):
                 angle_Min=self.command_angle  # шаг поворота за одно применение
@@ -199,6 +266,10 @@ class airplane:
         # Рассчитываем смещение по осям
         dx = self.speed * math.cos(angle_rad)  # сдвиг по X за кадр
         dy = self.speed * math.sin(angle_rad)  # сдвиг по Y (на экране вниз со знаком минус)
+        if sdvig != 0:
+            snos_rad = math.radians(self.turb_napravlenie)  # направление сноса в радианах
+            dx = dx + self.turb_skorost * sdvig * math.cos(snos_rad)
+            dy = dy + self.turb_skorost * sdvig * math.sin(snos_rad)
 
         # Новые координаты
         self.x = self.x + dx

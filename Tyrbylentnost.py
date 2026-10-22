@@ -1,9 +1,10 @@
 import pygame
 import math
+import random
 from dataclasses import dataclass, field, asdict
 
 @dataclass
-# Зона турбулентности: самолёт не теряется, топливо жжётся быстрее.
+# Зона турбулентности: сносит самолёт, после выравнивания топливо жжётся вдвое.
 class Tyrbylentnost:
     x: float  # центр зоны по X
     y: float  # центр зоны по Y
@@ -18,6 +19,7 @@ class Tyrbylentnost:
         self.dx=dx  # ширина
         self.dy=dy  # высота
         self.file=file  # файл картинки
+        self.napravlenie=random.uniform(0, 360)  # градусы сноса на этот заход карты
         self.display=display  # окно pygame
         image_file=pygame.image.load(file)  # исходный файл
         self.image = pygame.transform.scale(image_file, (self.dx, self.dy))  # картинка нужного размера
