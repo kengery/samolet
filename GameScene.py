@@ -16,7 +16,7 @@ import point
 import time
 import MyMicrophone
 command_queue = queue.Queue()  # очередь для передачи голосовых команд
-VISOTA_SBLIGENIA_AIRPLANE = 500  # футы: столкновение, если разница высот меньше этого
+VISOTA_SBLIGENIA_AIRPLANE = 305  # метры: столкновение, если разница высот меньше этого
 
 # Сцена симуляции: самолёты, зоны, кнопки, счёт и голос.
 class GameScene(Class.Scene):
@@ -31,7 +31,7 @@ class GameScene(Class.Scene):
         self.button_reduce = Image(gameEngine.screenx * 0.3, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09,self.display, 'image\\reduse.png')  # медленнее
         self.button_visota = Image(gameEngine.screenx * 0.72, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09, self.display, 'image\\button1.png')  # ввод высоты
         self.visota_input = False  # открыта ли плашка ввода высоты
-        self.visota_text = ""  # набранные футы
+        self.visota_text = ""  # набранные метры
         self.Radar = Image(gameEngine.screenx * -0.125, gameEngine.screeny * -0.6, gameEngine.screenx * 1.3, gameEngine.screeny * 2.3,self.display, 'image\\Radar3.png')  # фон радара
         self.Aroport=0  # картинка аэропорта, ставится при загрузке карты
         self.gameEngine=gameEngine  # движок сцен
@@ -118,7 +118,7 @@ class GameScene(Class.Scene):
                         d = math.sqrt((x_2 - x_1) * (x_2 - x_1) + (y_2 - y_1) * (y_2 - y_1))  # расстояние между центрами
                         stolk_airplane = self.airplanes[i].dx / 2 + self.airplanes[j].dx / 2 >= d or self.airplanes[i].dy / 2 + \
                                 self.airplanes[j].dy / 2 >= d  # близко на карте
-                        min_na_stolk_visota = math.fabs(self.airplanes[i].visota_airplane - self.airplanes[j].visota_airplane) < VISOTA_SBLIGENIA_AIRPLANE  # разница высот меньше 1000 фт
+                        min_na_stolk_visota = math.fabs(self.airplanes[i].visota_airplane - self.airplanes[j].visota_airplane) < VISOTA_SBLIGENIA_AIRPLANE  # разница высот меньше 305 м
                         if stolk_airplane and min_na_stolk_visota:
                             self.airplanes[i].stolk = True
                             self.airplanes[j].stolk = True
@@ -184,7 +184,7 @@ class GameScene(Class.Scene):
         self.button_reduce.render()
         self.button_visota.render()
         Figyrs.print_text(self.display, self.button_visota.x + self.gameEngine.screenx * 0.05, self.button_visota.y + self.gameEngine.screeny * 0.045, 22, (0, 0, 0), "Высота")
-        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.45, self.gameEngine.screeny * 0.12, 20, (0, 0, 0), f"Столкновение, если разница высот < {VISOTA_SBLIGENIA_AIRPLANE} фт")
+        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.45, self.gameEngine.screeny * 0.12, 20, (0, 0, 0), f"Столкновение, если разница высот < {VISOTA_SBLIGENIA_AIRPLANE} м")
         self.Aroport.render()
 
         self.__render_airplanes()
@@ -276,15 +276,18 @@ class GameScene(Class.Scene):
         self.visota_input = False
         self.visota_text = ""
 
-    # Рисует плашку ввода высоты в футах.
+    # Рисует плашку ввода высоты в метрах.
     def __render_visota_input(self):
         if self.visota_input == False:
             return
         x = self.gameEngine.screenx * 0.35  # левый край плашки
         y = self.gameEngine.screeny * 0.35  # верхний край плашки
         Figyrs.kvadr_poly(x, y, self.gameEngine.screenx * 0.3, self.gameEngine.screeny * 0.18, 220, self.display)
-        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, y + self.gameEngine.screeny * 0.04, 32, (0, 0, 0), "Высота, футы")
-        shown = self.visota_text if self.visota_text != "" else "_"  # набранные футы или подчёркивание
+        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, y + self.gameEngine.screeny * 0.04, 32, (0, 0, 0), "Высота, метры")
+        if self.visota_text != "":
+            shown = self.visota_text  # набранные метры
+        else:
+            shown = "_"  # подчёркивание, пока ничего не введено
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, y + self.gameEngine.screeny * 0.09, 36, (0, 0, 0), shown)
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, y + self.gameEngine.screeny * 0.14, 22, (0, 0, 0), "Enter — записать, Escape — отмена")
 
@@ -413,7 +416,7 @@ class GameScene(Class.Scene):
                                   self.display, 'image\\camolet2.png', f"Рейс{n}",
                                   (self.speed_min + self.speed_max) / 2,
                                   self.speed_min, self.speed_max, self.angle,
-                                  1500, 3000, 1000, 10000)
+                                  1500, 914, 305, 3048)
             self.airplanes.append(s)
 
 

@@ -20,10 +20,10 @@ class board:
     def render(self):
         self.image.render()
         Figyrs.print_text(self.display,self.x+self.dx/4,self.y+self.dy/3,24,(0,0,0),f"{self.airplane.name}")
-        Figyrs.print_text(self.display, self.x + self.dx / 4, self.y + self.dy * 0.72, 16, (0, 0, 0), f"Высота={int(self.airplane.visota_airplane)}")
+        Figyrs.print_text(self.display, self.x + self.dx / 4, self.y + self.dy * 0.72, 16, (0, 0, 0), f"Высота={int(round(self.airplane.visota_airplane))} м")
         Figyrs.print_text(self.display, self.x + self.dx / 1.5, self.y + self.dy / 4, 23, (0, 0, 0),f"Расход={int(self.airplane.benzin_rashod * 10) / 10}")
         Figyrs.print_text(self.display, self.x + self.dx / 1.5, self.y + self.dy / 2, 23, (0, 0, 0),f"Бензин={int((100*self.airplane.benzin)/self.airplane.izn_benzin)}%")
-        Figyrs.print_text(self.display, self.x + self.dx / 1.5, self.y + self.dy / 2+self.dy / 4, 23, (0, 0, 0),f"Скорость={int(self.airplane.speed*10)/10}")
+        Figyrs.print_text(self.display, self.x + self.dx / 1.5, self.y + self.dy / 2+self.dy / 4, 23, (0, 0, 0),f"Скорость={self.airplane.skorost_kmch()} км/ч")
         if self.airplane.max==True:
             Figyrs.print_text(self.display, self.x + self.dx+self.dx / 7, self.y + self.dy/2, 27, (0, 0, 0),"MAX")
         if self.airplane.min==True:

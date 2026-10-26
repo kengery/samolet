@@ -7,8 +7,10 @@ import Figyrs
 from dataclasses import dataclass, field, asdict
 import time
 
-PODEM_VISOT = 5  # футы за кадр (~30 мс), пока текущая высота не равна цели
-TURB_PADENIE = 30  # футы в секунду, пока турбулентность сносит
+PODEM_VISOT = 1  # метры за кадр (~30 мс), пока текущая высота не равна цели
+TURB_PADENIE = 9  # метры в секунду, пока турбулентность сносит
+SKOROST_KMCH = 200  # км/ч на 1 пиксель за кадр; speed 2 → 400 км/ч
+VEKTOR_KADROV = 100  # длина линии курса, кадры (~3 с)
 TURB_NACHALO = 1.5  # секунды сноса в сторону зоны
 TURB_OBRATNO = TURB_NACHALO / 2  # секунды сноса в обратную сторону
 
@@ -26,9 +28,9 @@ class airplane:
     speed_max :float  # верхний предел скорости
     angle: float  # курс в градусах: 0 — вправо
     benzin: float  # остаток топлива
-    visota_airplane: float  # текущая высота в футах
-    visota_min: float  # нижний предел высоты
-    visota_max: float  # верхний предел высоты
+    visota_airplane: float  # текущая высота в метрах
+    visota_min: float  # нижний предел высоты в метрах
+    visota_max: float  # верхний предел высоты в метрах
 
     # Создаёт самолёт и задаёт стартовые поля полёта.
     def __init__(self,x,y,dx,dy,display,file,name,speed,speed_min,speed_max,angle, benzin, visota_airplane, visota_min, visota_max):
@@ -44,14 +46,15 @@ class airplane:
         self.speed_min=speed_min  # минимальная скорость
         self.speed_max=speed_max  # максимальная скорость
 
-        self.visota_min=visota_min  # минимальная высота в футах
-        self.visota_max=visota_max  # максимальная высота в футах
-        self.visota_airplane=visota_airplane  # текущая высота в футах
+        self.visota_min=visota_min  # минимальная высота в метрах
+        self.visota_max=visota_max  # максимальная высота в метрах
+        self.visota_airplane=visota_airplane  # текущая высота в метрах
         if self.visota_airplane < self.visota_min:
             self.visota_airplane = self.visota_min
         if self.visota_airplane > self.visota_max:
             self.visota_airplane = self.visota_max
-        self.zadana_visota=self.visota_airplane  # целевая высота в футах
+        self.zadana_visota=self.visota_airplane  # целевая высота в метрах
+        self.visota_do=self.visota_airplane  # высота на прошлом кадре, для стрелки
 
         self.benzin=benzin  # остаток топлива
         self.izn_benzin=self.benzin  # стартовый бак (штраф в баллах)
@@ -90,11 +93,13 @@ class airplane:
         self.command_angle=15  # шаг поворота в градусах
 
 
-    # Рисует спрайт, имя, высоту и след из последних 150 точек.
+    # Рисует спрайт, формуляр, линию курса и след из последних 150 точек.
     def render(self):
         self.camolet.render()
+        #self.__render_vektor()
         Figyrs.print_text(self.display,self.x+self.dx/2,self.y,25,(0,0,0),f"{self.name}")
         Figyrs.print_text(self.display,self.x+self.dx/2,self.y+22,18,(0,0,0),self.visota_text())
+        Figyrs.print_text(self.display,self.x+self.dx/2,self.y+40,18,(0,0,0),f"{self.skorost_kmch()}")
         #pygame.draw.circle(self.display,(255,0,0),(self.x+self.dx/2,self.y+self.dy/2),self.dx/2,2)
 
         if len(self.points) > 1:
@@ -104,21 +109,45 @@ class airplane:
                 m = self.points[i]  # текущая точка следа
                 pygame.draw.line(self.display, (0, 0, 0), (n.x, n.y), (m.x, m.y))
 
-    # Текст высоты: текущие футы и стрелка к цели, если ещё не дошли.
-    def visota_text(self):
-        current = int(self.visota_airplane)  # текущая высота
-        target = int(self.zadana_visota)  # целевая высота
-        if self.visota_airplane != self.zadana_visota:
-            return f"с {current} до {target} фт"
-        return f"{current} фт"
+    # Линия вперёд по курсу на VEKTOR_KADROV кадров, без сноса.
+    def __render_vektor(self):
+        cx = self.x + self.dx / 2  # центр самолёта по X
+        cy = self.y + self.dy / 2  # центр самолёта по Y
+        angle_rad = math.radians(self.angle)  # курс в радианах
+        dlina = self.speed * VEKTOR_KADROV  # длина линии, пиксели
+        x2 = cx + dlina * math.cos(angle_rad)  # конец линии по X
+        y2 = cy - dlina * math.sin(angle_rad)  # конец линии по Y
+        pygame.draw.line(self.display, (0, 0, 0), (cx, cy), (x2, y2))
 
-    # Ставит целевую высоту и зажимает её в пределах самолёта.
-    def set_zadana_visota(self, feet):
-        if feet < self.visota_min:
-            feet = self.visota_min
-        if feet > self.visota_max:
-            feet = self.visota_max
-        self.zadana_visota = feet
+    # Четыре цифры: высота в десятках метров.
+    def desyatki_metrov(self, metry):
+        desyatki = int(round(metry / 10))  # десятки метров
+        return f"{desyatki:04d}"
+
+    # Формуляр высоты: десятки метров, стрелка и заданная, если она другая.
+    def visota_text(self):
+        tek = self.desyatki_metrov(self.visota_airplane)  # текущая высота
+        tekst = tek  # строка формуляра
+        if self.visota_airplane > self.visota_do:
+            tekst = tekst + "↑"
+        elif self.visota_airplane < self.visota_do:
+            tekst = tekst + "↓"
+        zadana = self.desyatki_metrov(self.zadana_visota)  # заданная высота
+        if zadana != tek:
+            tekst = tekst + " " + zadana
+        return tekst
+
+    # Путевая скорость в км/ч.
+    def skorost_kmch(self):
+        return int(round(self.speed * SKOROST_KMCH))
+
+    # Ставит целевую высоту в метрах и зажимает её в пределах самолёта.
+    def set_zadana_visota(self, metry):
+        if metry < self.visota_min:
+            metry = self.visota_min
+        if metry > self.visota_max:
+            metry = self.visota_max
+        self.zadana_visota = metry
 
     # Ставит команду поворота, если другой команды ещё нет.
     def add_angle(self,angle):
@@ -181,6 +210,7 @@ class airplane:
             return
         if self.finish==True or self.stolk==True or self.poteryan==True:
             return
+        self.visota_do = self.visota_airplane
         sdvig = 0  # доля сноса: 1 в сторону зоны, -1 обратно, 0 нет
         if self.turb_aktiv == True:
             t = time.time() - self.turb_t0  # секунды с захода в зону
