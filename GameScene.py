@@ -20,7 +20,7 @@ VISOTA_SBLIGENIA_AIRPLANE = 305  # метры: столкновение, есл�
 
 # Сцена симуляции: самолёты, зоны, кнопки, счёт и голос.
 class GameScene(Class.Scene):
-    # Создаёт кнопки, радар и поля раунда. Самолёты появятся при загрузке карты.
+    # Создаёт кнопки, поле и поля раунда. Самолёты появятся при загрузке карты.
     def __init__(self, gameEngine, display):
         super().__init__(gameEngine)
         self.display = display  # окно pygame
@@ -32,7 +32,13 @@ class GameScene(Class.Scene):
         self.button_visota = Image(gameEngine.screenx * 0.72, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09, self.display, 'image\\button1.png')  # ввод высоты
         self.visota_input = False  # открыта ли плашка ввода высоты
         self.visota_text = ""  # набранные метры
-        self.Radar = Image(gameEngine.screenx * -0.125, gameEngine.screeny * -0.6, gameEngine.screenx * 1.3, gameEngine.screeny * 2.3,self.display, 'image\\Radar3.png')  # фон радара
+        self.pole_x = 260  # левый край поля, справа от табличек
+        self.pole_y = 100  # верхний край поля
+        self.pole_x2 = 1820  # правый край поля
+        self.pole_y2 = 965  # нижний край поля
+        self.fon_cvet = (6, 16, 28)  # цвет фона за полем
+        self.pole_cvet = (10, 28, 46)  # заливка поля
+        self.ramka_cvet = (0, 210, 220)  # цвет рамки поля
         self.Aroport=0  # картинка аэропорта, ставится при загрузке карты
         self.gameEngine=gameEngine  # движок сцен
         self.display=display  # окно pygame
@@ -94,7 +100,7 @@ class GameScene(Class.Scene):
                         self.visota_text = ""
 
 
-    # Движение, столкновения, посадка, экран, запретные зоны и конец раунда.
+    # Движение, столкновения, посадка, поле, запретные зоны и конец раунда.
     def update(self):
 
         self.__update_move_airplanes()
@@ -137,8 +143,8 @@ class GameScene(Class.Scene):
 
             if self.airplanes[i].stolk == False and self.airplanes[i].finish == False and self.airplanes[
                 i].poteryan == False:
-                if 0 >= self.airplanes[i].x or self.gameEngine.screenx <= self.airplanes[i].x + self.airplanes[i].dx or 0 >= \
-                        self.airplanes[i].y or self.gameEngine.screeny <= self.airplanes[i].y + self.airplanes[i].dy:
+                if self.airplanes[i].x < self.pole_x or self.airplanes[i].x + self.airplanes[i].dx > self.pole_x2 or \
+                        self.airplanes[i].y < self.pole_y or self.airplanes[i].y + self.airplanes[i].dy > self.pole_y2:
                     self.airplanes[i].poteryan = True
             """
             if self.airplanes[i].stolk == False and self.airplanes[i].finish == False and self.airplanes[
@@ -167,14 +173,22 @@ class GameScene(Class.Scene):
 
         if game_end == len(self.airplanes):
             self.end_game = True
-        else:
-            self.Radar.angle = self.Radar.angle - 4
 
-    # Рисует радар, зоны, кнопки, аэропорт, самолёты и итог раунда.
+    # Рисует тёмный фон окна и прямоугольник поля с рамкой.
+    def __render_pole(self):
+        self.display.fill(self.fon_cvet)
+        pole = (self.pole_x, self.pole_y, self.pole_x2 - self.pole_x, self.pole_y2 - self.pole_y)  # прямоугольник поля
+        pygame.draw.rect(self.display, self.pole_cvet, pole)
+        pygame.draw.rect(self.display, self.ramka_cvet, pole, 2)
+
+    # Рисует поле, зоны, кнопки, аэропорт, самолёты и итог раунда.
     def render(self):
-        self.Radar.render()
-
+        self.__render_pole()
         self.__render_tyrbylentnost()
+        self.Aroport.render()
+        self.__render_airplanes()
+        self.display.set_clip(None)
+
         self.__render_button_airplanes()
 
         self.button_exit.render()
@@ -185,9 +199,6 @@ class GameScene(Class.Scene):
         self.button_visota.render()
         Figyrs.print_text(self.display, self.button_visota.x + self.gameEngine.screenx * 0.05, self.button_visota.y + self.gameEngine.screeny * 0.045, 22, (0, 0, 0), "Высота")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.45, self.gameEngine.screeny * 0.12, 20, (0, 0, 0), f"Столкновение, если разница высот < {VISOTA_SBLIGENIA_AIRPLANE} м")
-        self.Aroport.render()
-
-        self.__render_airplanes()
         self.__render_visota_input()
 
         if self.end_game == True:
@@ -233,19 +244,15 @@ class GameScene(Class.Scene):
             return
         for i in range(0, len(self.button_airplane)):
             if self.airplanes[i].stolk != True:
-                self.button_airplane[i].render()
-                if self.airplanes[i].Zapr_zon == True:
-                    Figyrs.print_text(self.display, self.button_airplane[i].x + self.button_airplane[i].dx / 2,
-                                      self.button_airplane[i].y+self.gameEngine.screeny*0.01+ self.button_airplane[i].dy, 20, (0, 0, 0),
-                                      f"Самолёт в ветреной зоне")
+                self.button_airplane[i].render_poloska()
             else:
-                self.button_stolk[i].render()
+                self.button_stolk[i].render_poloska()
             if self.airplanes[i].poteryan == True:
-                self.button_stolk[i].render()
+                self.button_stolk[i].render_poloska()
             if self.airplanes[i].benzin <= 0:
-                self.button_stolk[i].render()
+                self.button_stolk[i].render_poloska()
             if self.airplanes[i].finish == True:
-                self.button_finish[i].render()
+                self.button_finish[i].render_poloska()
 
     # Двигает самолёты: снос в турбулентности и множитель топлива.
     def __update_move_airplanes(self):
@@ -376,15 +383,10 @@ class GameScene(Class.Scene):
         self.button_stolk = []  # красные таблички (разбит или потерян)
 
         for i in range(0, len(self.airplanes)):
-            a = board.board(self.gameEngine.screenx * 0, i*1.4 * self.gameEngine.screeny * 0.07, self.gameEngine.screenx * 0.11,
-                            self.gameEngine.screeny * 0.08,
-                            self.display, 'image\\button1.png', self.airplanes[i])  # обычная табличка
-            s = board.board(self.gameEngine.screenx * 0, i*1.4 * self.gameEngine.screeny * 0.07, self.gameEngine.screenx * 0.11,
-                            self.gameEngine.screeny * 0.08,
-                            self.display, 'image\\button_green.png', self.airplanes[i])  # зелёная табличка
-            d = board.board(self.gameEngine.screenx * 0, i*1.4 * self.gameEngine.screeny * 0.07, self.gameEngine.screenx * 0.11,
-                            self.gameEngine.screeny * 0.08,
-                            self.display, 'image\\button_red.png', self.airplanes[i])  # красная табличка
+            tab_y = 12 + i * 110  # верх таблички
+            a = board.board(12, tab_y, 220, 96, self.display, 'image\\button1.png', self.airplanes[i], (0, 210, 220))  # летит, бирюзовая рамка
+            s = board.board(12, tab_y, 220, 96, self.display, 'image\\button_green.png', self.airplanes[i], (0, 255, 0))  # сел, зелёная рамка
+            d = board.board(12, tab_y, 220, 96, self.display, 'image\\button_red.png', self.airplanes[i], (255, 0, 0))  # потерян, красная рамка
             self.button_airplane.append(a)
             self.button_finish.append(s)
             self.button_stolk.append(d)
@@ -425,12 +427,10 @@ class GameScene(Class.Scene):
         self.button_stolk = []  # красные таблички
 
         for i in range(0, len(self.airplanes)):
-            a = board.board(self.gameEngine.screenx * 0, i * self.gameEngine.screeny * 0.07, self.gameEngine.screenx * 0.11, self.gameEngine.screeny * 0.08,
-                            self.display, 'image\\button.png', self.airplanes[i])
-            s = board.board(self.gameEngine.screenx * 0, i * self.gameEngine.screeny * 0.07, self.gameEngine.screenx * 0.11, self.gameEngine.screeny * 0.08,
-                            self.display, 'image\\button_green.png', self.airplanes[i])
-            d = board.board(self.gameEngine.screenx * 0, i * self.gameEngine.screeny * 0.07, self.gameEngine.screenx * 0.11, self.gameEngine.screeny * 0.08,
-                            self.display, 'image\\button_red.png', self.airplanes[i])
+            tab_y = 12 + i * 110  # верх таблички
+            a = board.board(12, tab_y, 220, 96, self.display, 'image\\button1.png', self.airplanes[i], (0, 210, 220))  # летит, бирюзовая рамка
+            s = board.board(12, tab_y, 220, 96, self.display, 'image\\button_green.png', self.airplanes[i], (70, 190, 120))  # сел, зелёная рамка
+            d = board.board(12, tab_y, 220, 96, self.display, 'image\\button_red.png', self.airplanes[i], (190, 70, 80))  # потерян, красная рамка
             self.button_airplane.append(a)
             self.button_finish.append(s)
             self.button_stolk.append(d)

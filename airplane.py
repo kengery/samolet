@@ -97,9 +97,9 @@ class airplane:
     def render(self):
         self.camolet.render()
         #self.__render_vektor()
-        Figyrs.print_text(self.display,self.x+self.dx/2,self.y,25,(0,0,0),f"{self.name}")
-        Figyrs.print_text(self.display,self.x+self.dx/2,self.y+22,18,(0,0,0),self.visota_text())
-        Figyrs.print_text(self.display,self.x+self.dx/2,self.y+40,18,(0,0,0),f"{self.skorost_kmch()}")
+        Figyrs.print_text(self.display,self.x+self.dx/2,self.y,23,(70, 220, 230),f"{self.name}")
+        Figyrs.print_text(self.display,self.x+self.dx/2,self.y+38,18,(70, 220, 230),self.visota_text())
+        Figyrs.print_text(self.display,self.x+self.dx/2,self.y+48,18,(70, 220, 230),f"{self.skorost_kmch()}")
         #pygame.draw.circle(self.display,(255,0,0),(self.x+self.dx/2,self.y+self.dy/2),self.dx/2,2)
 
         if len(self.points) > 1:
