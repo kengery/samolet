@@ -103,6 +103,7 @@ class GameScene(Class.Scene):
     # Движение, столкновения, посадка, поле, запретные зоны и конец раунда.
     def update(self):
 
+        self.__update_tyrbylentnost()
         self.__update_move_airplanes()
         self.__calc_balls()
 
@@ -199,6 +200,7 @@ class GameScene(Class.Scene):
         self.button_visota.render()
         Figyrs.print_text(self.display, self.button_visota.x + self.gameEngine.screenx * 0.05, self.button_visota.y + self.gameEngine.screeny * 0.045, 22, (0, 0, 0), "Высота")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.45, self.gameEngine.screeny * 0.12, 20, (0, 0, 0), f"Столкновение, если разница высот < {VISOTA_SBLIGENIA_AIRPLANE} м")
+        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.45, self.gameEngine.screeny * 0.15, 20, (0, 0, 0), f"Ветер, если разница высот < {Tyrbylentnost.VISOTA_SLOIA} м")
         self.__render_visota_input()
 
         if self.end_game == True:
@@ -254,12 +256,17 @@ class GameScene(Class.Scene):
             if self.airplanes[i].finish == True:
                 self.button_finish[i].render_poloska()
 
+    # Сдвигает зоны ветра по их курсу и по высоте слоя.
+    def __update_tyrbylentnost(self):
+        for i in range(0, len(self.Tyrbylentnost)):
+            self.Tyrbylentnost[i].move()
+
     # Двигает самолёты: снос в турбулентности и множитель топлива.
     def __update_move_airplanes(self):
         for i in range(0,len(self.airplanes)):
             zona = None  # зона, в которой самолёт в этом кадре
             for j in range(0, len(self.Tyrbylentnost)):
-                if self.Tyrbylentnost[j].select(self.airplanes[i].x,self.airplanes[i].y,self.airplanes[i].dx,self.airplanes[i].dy)==True:
+                if self.Tyrbylentnost[j].select(self.airplanes[i].x,self.airplanes[i].y,self.airplanes[i].dx,self.airplanes[i].dy,self.airplanes[i].visota_airplane)==True:
                     zona = self.Tyrbylentnost[j]
                     break
             self.airplanes[i].turb_zahod(zona)
