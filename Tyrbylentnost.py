@@ -8,25 +8,33 @@ from dataclasses import dataclass, field, asdict
 class Tyrbylentnost:
     x: float  # центр зоны по X
     y: float  # центр зоны по Y
-    dx: int  # ширина картинки
-    dy: int  # высота картинки
-    file: str  # путь к картинке зоны
+    dx: int  # сторона квадрата по X
+    dy: int  # сторона квадрата по Y
+    file: str  # путь из JSON, на экран не выводится
 
-    # Грузит картинку ветра и запоминает размер и центр.
+    # Запоминает размер, центр и окно. Картинку не грузит.
     def __init__(self, display, x, y, dx, dy, file):
         self.x=x  # центр по X
         self.y=y  # центр по Y
-        self.dx=dx  # ширина
-        self.dy=dy  # высота
-        self.file=file  # файл картинки
+        self.dx=dx  # ширина квадрата
+        self.dy=dy  # высота квадрата
+        self.file=file  # файл из JSON
         self.napravlenie=random.uniform(0, 360)  # градусы сноса на этот заход карты
         self.display=display  # окно pygame
-        image_file=pygame.image.load(file)  # исходный файл
-        self.image = pygame.transform.scale(image_file, (self.dx, self.dy))  # картинка нужного размера
+        # Цвет (красный, зелёный, синий, прозрачность): 0 — невидно, 255 — как сплошная краска.
+        self.zalivka = (230, 190, 90, 80)  # янтарная заливка, слабо прозрачная
+        self.ramka = (230, 190, 90, 200)  # та же зона, рамка почти непрозрачная
 
-    # Рисует зону вокруг её центра.
+    # Рисует полупрозрачный квадрат вокруг центра.
     def render(self):
-        self.display.blit(self.image, (self.x-(self.dx/2), self.y-(self.dy/2)))
+        # Отдельный холст размером с зону: на нём рисуем, потом кладём на карту.
+        # SRCALPHA — режим «можно задавать прозрачность пикселей», иначе заливка перекроет радар.
+        kvadrat = pygame.Surface((int(self.dx), int(self.dy)), pygame.SRCALPHA)
+        kvadrat.fill(self.zalivka)  # залитый квадрат: сквозь него виден фон
+        pygame.draw.rect(kvadrat, self.ramka, kvadrat.get_rect(), 2)  # обводка по краю, 2 пикселя
+        levo = self.x - (self.dx / 2)  # левый край квадрата на экране
+        verh = self.y - (self.dy / 2)  # верхний край квадрата на экране
+        self.display.blit(kvadrat, (levo, verh))  # перенос холста на окно игры
 
     # True, если центр самолёта попал в зону ветра.
     def select(self,x,y,dx,dy)->bool:
