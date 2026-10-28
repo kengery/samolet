@@ -261,12 +261,15 @@ class GameScene(Class.Scene):
         for i in range(0, len(self.Tyrbylentnost)):
             self.Tyrbylentnost[i].move()
 
-    # Двигает самолёты: снос в турбулентности и множитель топлива.
+    # Двигает самолёты: доклад зоны при входе, снос и множитель топлива.
     def __update_move_airplanes(self):
         for i in range(0,len(self.airplanes)):
             zona = None  # зона, в которой самолёт в этом кадре
             for j in range(0, len(self.Tyrbylentnost)):
-                if self.Tyrbylentnost[j].select(self.airplanes[i].x,self.airplanes[i].y,self.airplanes[i].dx,self.airplanes[i].dy,self.airplanes[i].visota_airplane)==True:
+                popal = self.Tyrbylentnost[j].select(self.airplanes[i].x,self.airplanes[i].y,self.airplanes[i].dx,self.airplanes[i].dy,self.airplanes[i].visota_airplane)  # самолёт в турбулентной зоне
+                if popal == True:
+                    if self.airplanes[i].turb_vnutri == False:
+                        self.Tyrbylentnost[j].doklad()
                     zona = self.Tyrbylentnost[j]
                     break
             self.airplanes[i].turb_zahod(zona)
@@ -398,10 +401,12 @@ class GameScene(Class.Scene):
             self.button_finish.append(s)
             self.button_stolk.append(d)
 
-        self.Tyrbylentnost = []  # зоны ветра карты
+        self.Tyrbylentnost = []  # турбулентные зоны карты
         for i in nn.tyrbylentnosts:
             s = Tyrbylentnost.Tyrbylentnost(self.display, i.x,i.y, i.dx,i.dy,i.file)
             self.Tyrbylentnost.append(s)
+        if len(self.Tyrbylentnost) > 0:
+            self.Tyrbylentnost[0].doklad()  # на старте карты известен один доклад
 
         self.n_zona = []  # запретные зоны карты
         for i in nn.zona:

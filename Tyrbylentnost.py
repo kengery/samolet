@@ -28,6 +28,10 @@ class Tyrbylentnost:
         self.file=file  # файл из JSON
         self.napravlenie=random.uniform(0, 360)  # градусы сноса и хода зоны на этот заход карты
         self.visota=random.uniform(VISOTA_START_MIN, VISOTA_START_MAX)  # высота слоя, метры
+        self.izvestna = False  # True, если зону уже доложили и её рисуем
+        self.doklad_x = self.x  # X отметки доклада
+        self.doklad_y = self.y  # Y отметки доклада
+        self.doklad_visota = self.visota  # высота слоя в докладе, метры
         if random.random() < 0.5:
             self.hod_visota = SKOROST_VISOTY  # слой каждый кадр поднимается
         else:
@@ -37,17 +41,26 @@ class Tyrbylentnost:
         self.zalivka = (230, 190, 90, 80)  # янтарная заливка, слабо прозрачная
         self.ramka = (230, 190, 90, 200)  # та же зона, рамка почти непрозрачная
 
-    # Рисует полупрозрачный квадрат вокруг центра.
+    # Ставит отметку доклада на текущие место и высоту зоны.
+    def doklad(self):
+        self.izvestna = True
+        self.doklad_x = self.x
+        self.doklad_y = self.y
+        self.doklad_visota = self.visota
+
+    # Рисует полупрозрачный квадрат отметки доклада.
     def render(self):
+        if self.izvestna == False:
+            return
         # Отдельный холст размером с зону: на нём рисуем, потом кладём на карту.
         # SRCALPHA — режим «можно задавать прозрачность пикселей», иначе заливка перекроет радар.
         kvadrat = pygame.Surface((int(self.dx), int(self.dy)), pygame.SRCALPHA)
         kvadrat.fill(self.zalivka)  # залитый квадрат: сквозь него виден фон
         pygame.draw.rect(kvadrat, self.ramka, kvadrat.get_rect(), 2)  # обводка по краю, 2 пикселя
-        levo = self.x - (self.dx / 2)  # левый край квадрата на экране
-        verh = self.y - (self.dy / 2)  # верхний край квадрата на экране
+        levo = self.doklad_x - (self.dx / 2)  # левый край отметки на экране
+        verh = self.doklad_y - (self.dy / 2)  # верхний край отметки на экране
         self.display.blit(kvadrat, (levo, verh))  # перенос холста на окно игры
-        Figyrs.print_text(self.display, self.x, self.y, 18, (70, 220, 230), f"{int(round(self.visota))} м")
+        Figyrs.print_text(self.display, self.doklad_x, self.doklad_y, 18, (70, 220, 230), f"{int(round(self.doklad_visota))} м")
 
     # Сдвигает центр по ветру зоны и высоту слоя. Края экрана не разворачивают.
     def move(self):
