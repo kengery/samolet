@@ -36,8 +36,8 @@ class board:
 
     # Рисует узкую полоску рейса: имя, высота, скорость, топливо.
     def render_poloska(self):
-        pygame.draw.rect(self.display, self.zalivka, (self.x, self.y, self.dx, self.dy))
-        pygame.draw.rect(self.display, self.ramka, (self.x, self.y, self.dx, self.dy), 1)
+        pygame.draw.rect(self.display, self.zalivka, (self.x, self.y, self.dx, self.dy))  # заливка таблички рейса
+        pygame.draw.rect(self.display, self.ramka, (self.x, self.y, self.dx, self.dy), 1)  # рамка таблички толщиной 1
         left = self.x + 12  # левый край текста
         vysota = int(round(self.airplane.visota_airplane))  # высота в метрах
         skorost = self.airplane.skorost_kmch()  # путевая скорость, км/ч

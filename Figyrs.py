@@ -1,10 +1,10 @@
 import pygame
 # Рисует квадрат линиями по координатам и стороне l.
 def kvadrat(display,color,x,y,l):
-    pygame.draw.line(display, color, (x, y), (x + l, y))
-    pygame.draw.line(display, color, (x + l, y), (x + l, y + l))
-    pygame.draw.line(display, color, (x + l, y + l), (x, y + l))
-    pygame.draw.line(display, color, (x, y + l), (x, y))
+    pygame.draw.line(display, color, (x, y), (x + l, y))  # верхняя сторона квадрата
+    pygame.draw.line(display, color, (x + l, y), (x + l, y + l))  # правая сторона квадрата
+    pygame.draw.line(display, color, (x + l, y + l), (x, y + l))  # нижняя сторона квадрата
+    pygame.draw.line(display, color, (x, y + l), (x, y))  # левая сторона квадрата
 
 # Рисует текст слева от точки (x, y): x — левый край строки.
 def print_text_left(display, x, y, size, color, text):

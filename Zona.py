@@ -17,7 +17,7 @@ class zona:
         # Преобразуем точки в формат, понятный pygame (список кортежей (x, y))
         point_list = [(point[0], point[1]) for point in self.points]  # вершины для pygame
         # Рисуем закрашенный многоугольник
-        pygame.draw.polygon(self.display, self.color, point_list)
+        pygame.draw.polygon(self.display, self.color, point_list)  # залитый запретный многоугольник
 
     # True, если точка (x, y) внутри многоугольника (луч вправо).
     def select(self, x, y):

@@ -14,6 +14,7 @@ VEKTOR_KADROV = 100  # длина линии курса, кадры (~3 с)
 AVTOPILOT_GRAD = 0.5  # максимальный доворот к аэропорту, градусы за кадр
 TURB_NACHALO = 1.5  # секунды сноса в сторону зоны
 TURB_OBRATNO = TURB_NACHALO / 2  # секунды сноса в обратную сторону
+ROMB_R = 9  # половина диагонали ромба, пиксели
 
 @dataclass
 # Самолёт: полёт, топливо, команды курса и скорости.
@@ -99,21 +100,32 @@ class airplane:
         self.command_angle=15  # шаг поворота в градусах
 
 
-    # Рисует спрайт, формуляр, линию курса и след из последних 150 точек.
+    # Рисует ромб, формуляр, линию курса и след из последних 150 точек.
     def render(self):
-        self.camolet.render()
         self.__render_vektor()
-        Figyrs.print_text(self.display,self.x+self.dx/2,self.y,23,(70, 220, 230),f"{self.name}")
-        Figyrs.print_text(self.display,self.x+self.dx/2,self.y+38,18,(70, 220, 230),self.visota_text())
-        Figyrs.print_text(self.display,self.x+self.dx/2,self.y+48,18,(70, 220, 230),f"{self.skorost_kmch()}")
-        #pygame.draw.circle(self.display,(255,0,0),(self.x+self.dx/2,self.y+self.dy/2),self.dx/2,2)
-
         if len(self.points) > 1:
             self.count_points = max(0, len(self.points) - 150)
             for i in range(self.count_points + 1, len(self.points)):
                 n = self.points[i - 1]  # предыдущая точка следа
                 m = self.points[i]  # текущая точка следа
-                pygame.draw.line(self.display, (0, 0, 0), (n.x, n.y), (m.x, m.y))
+                pygame.draw.line(self.display, (0, 0, 0), (n.x, n.y), (m.x, m.y))  # отрезок следа между двумя точками
+        self.__render_romb()
+        Figyrs.print_text(self.display,self.x+self.dx/2,self.y,23,(70, 220, 230),f"{self.name}")
+        Figyrs.print_text(self.display,self.x+self.dx/2,self.y+38,18,(70, 220, 230),self.visota_text())
+        Figyrs.print_text(self.display,self.x+self.dx/2,self.y+48,18,(70, 220, 230),f"{self.skorost_kmch()}")
+
+    # Ромб вместо картинки: жёлтый при смене высоты, белый выбран, иначе бирюза.
+    def __render_romb(self):
+        if self.visota_airplane > self.visota_do or self.visota_airplane < self.visota_do:
+            cvet = (230, 190, 40)  # набор или снижение
+        elif self.click_camolet == True:
+            cvet = (255, 255, 255)  # выбранный самолёт
+        else:
+            cvet = (70, 220, 230)  # обычный борт
+        cx = self.x + self.dx / 2  # центр ромба по X
+        cy = self.y + self.dy / 2  # центр ромба по Y
+        tochki = [(cx, cy - ROMB_R), (cx + ROMB_R, cy), (cx, cy + ROMB_R), (cx - ROMB_R, cy)]  # вершины ромба
+        pygame.draw.polygon(self.display, cvet, tochki)  # залитый ромб самолёта
 
     # Курс после доворота к аэропорту не больше чем на AVTOPILOT_GRAD. Без аэропорта угол тот же.
     def __dovorot(self, cx, cy, angle):
@@ -181,7 +193,7 @@ class airplane:
                 cy = ny
                 tochki.append((cx, cy))
         if len(tochki) > 1:
-            pygame.draw.lines(self.display, cvet, False, tochki, 2)
+            pygame.draw.lines(self.display, cvet, False, tochki, 2)  # линия курса толщиной 2
 
     # Четыре цифры: высота в десятках метров.
     def desyatki_metrov(self, metry):

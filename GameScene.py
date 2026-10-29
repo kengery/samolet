@@ -182,8 +182,8 @@ class GameScene(Class.Scene):
     def __render_pole(self):
         self.display.fill(self.fon_cvet)
         pole = (self.pole_x, self.pole_y, self.pole_x2 - self.pole_x, self.pole_y2 - self.pole_y)  # прямоугольник поля
-        pygame.draw.rect(self.display, self.pole_cvet, pole)
-        pygame.draw.rect(self.display, self.ramka_cvet, pole, 2)
+        pygame.draw.rect(self.display, self.pole_cvet, pole)  # заливка поля
+        pygame.draw.rect(self.display, self.ramka_cvet, pole, 2)  # рамка поля толщиной 2
 
     # Рисует поле, зоны, кнопки, аэропорт, самолёты и итог раунда.
     def render(self):
@@ -221,19 +221,11 @@ class GameScene(Class.Scene):
         #for i in range(0, len(self.Pogoda)):
         #    self.Pogoda[i].render()
 
-    # Рисует летящие самолёты; выбранный — другой спрайт.
+    # Рисует летящие самолёты ромбом.
     def __render_airplanes(self):
         for i in range(0, len(self.airplanes)):
             if self.airplanes[i].stolk == False and self.airplanes[i].finish == False and self.airplanes[
                 i].poteryan == False:
-                if self.airplanes[i].click_camolet==True:
-                    self.airplanes[i].camolet = Image(self.airplanes[i].x, self.airplanes[i].y, self.airplanes[i].dx,
-                                                      self.airplanes[i].dy, self.display, "image\\camolet3.png",self.airplanes[i].angle)
-
-                else:
-                    self.airplanes[i].camolet = Image(self.airplanes[i].x, self.airplanes[i].y, self.airplanes[i].dx,
-                                                     self.airplanes[i].dy, self.display, "image\\camolet2.png",self.airplanes[i].angle)
-
                 self.airplanes[i].render()
 
     # Показывает итоговое окно: баллы, столкнулись, потеряны, сели.
