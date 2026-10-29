@@ -11,6 +11,7 @@ PODEM_VISOT = 1  # метры за кадр (~30 мс), пока текущая 
 TURB_PADENIE = 9  # метры в секунду, пока турбулентность сносит
 SKOROST_KMCH = 200  # км/ч на 1 пиксель за кадр; speed 2 → 400 км/ч
 VEKTOR_KADROV = 100  # длина линии курса, кадры (~3 с)
+AVTOPILOT_GRAD = 0.5  # максимальный доворот к аэропорту, градусы за кадр
 TURB_NACHALO = 1.5  # секунды сноса в сторону зоны
 TURB_OBRATNO = TURB_NACHALO / 2  # секунды сноса в обратную сторону
 
@@ -85,6 +86,11 @@ class airplane:
         self.ball_benz=0  # уже сожжённое топливо для баллов
         self.__koef_ball=1  # множитель расхода: 1 обычный, 2 после выравнивания в зоне
         self.click_camolet=False  # выбран ли этот самолёт
+        self.avtopilot = True  # сам доворачивает к аэропорту
+        self.aeroport_x = None  # центр аэропорта X, None пока карта не задала
+        self.aeroport_y = None  # центр аэропорта Y
+        self.aeroport_rx = None  # половина ширины картинки аэропорта
+        self.aeroport_ry = None  # половина высоты картинки аэропорта
 
         self.command_last_time=time.time()  # когда последний раз применили команду
         self.command=None  # текущая команда курса или скорости
@@ -96,7 +102,7 @@ class airplane:
     # Рисует спрайт, формуляр, линию курса и след из последних 150 точек.
     def render(self):
         self.camolet.render()
-        #self.__render_vektor()
+        self.__render_vektor()
         Figyrs.print_text(self.display,self.x+self.dx/2,self.y,23,(70, 220, 230),f"{self.name}")
         Figyrs.print_text(self.display,self.x+self.dx/2,self.y+38,18,(70, 220, 230),self.visota_text())
         Figyrs.print_text(self.display,self.x+self.dx/2,self.y+48,18,(70, 220, 230),f"{self.skorost_kmch()}")
@@ -109,15 +115,73 @@ class airplane:
                 m = self.points[i]  # текущая точка следа
                 pygame.draw.line(self.display, (0, 0, 0), (n.x, n.y), (m.x, m.y))
 
-    # Линия вперёд по курсу на VEKTOR_KADROV кадров, без сноса.
+    # Курс после доворота к аэропорту не больше чем на AVTOPILOT_GRAD. Без аэропорта угол тот же.
+    def __dovorot(self, cx, cy, angle):
+        if self.aeroport_x is None:
+            return angle
+        cel = math.degrees(math.atan2(cy - self.aeroport_y, self.aeroport_x - cx))  # курс на центр аэропорта
+        raznica = (cel - angle + 180) % 360 - 180  # кратчайший доворот, градусы
+        if raznica > AVTOPILOT_GRAD:
+            raznica = AVTOPILOT_GRAD
+        elif raznica < -AVTOPILOT_GRAD:
+            raznica = -AVTOPILOT_GRAD
+        return angle + raznica
+
+    # True, если точка внутри картинки аэропорта.
+    def __v_kartinke(self, x, y):
+        if self.aeroport_x is None or self.aeroport_rx is None:
+            return False
+        return abs(x - self.aeroport_x) <= self.aeroport_rx and abs(y - self.aeroport_y) <= self.aeroport_ry
+
+    # Точка, где отрезок входит в картинку аэропорта.
+    def __vhod_v_aeroport(self, x1, y1, x2, y2):
+        left = self.aeroport_x - self.aeroport_rx  # левый край картинки
+        right = self.aeroport_x + self.aeroport_rx  # правый край картинки
+        top = self.aeroport_y - self.aeroport_ry  # верхний край картинки
+        bottom = self.aeroport_y + self.aeroport_ry  # нижний край картинки
+        dx = x2 - x1  # шаг по X
+        dy = y2 - y1  # шаг по Y
+        t_hit = 1  # доля шага до границы
+        if dx != 0:
+            for i in (left, right):
+                t = (i - x1) / dx  # доля шага до вертикального края
+                y = y1 + t * dy  # Y на этом крае
+                if 0 <= t <= 1 and top <= y <= bottom and t < t_hit:
+                    t_hit = t
+        if dy != 0:
+            for i in (top, bottom):
+                t = (i - y1) / dy  # доля шага до горизонтального края
+                x = x1 + t * dx  # X на этом крае
+                if 0 <= t <= 1 and left <= x <= right and t < t_hit:
+                    t_hit = t
+        return (x1 + t_hit * dx, y1 + t_hit * dy)
+
+    # Линия не длиннее VEKTOR_KADROV кадров. На краю картинки аэропорта обрывается. Снос не входит.
     def __render_vektor(self):
+        if self.click_camolet == True:
+            cvet = (0, 210, 220)  # выбранный самолёт
+        else:
+            cvet = (0, 120, 130)  # остальные тусклее
         cx = self.x + self.dx / 2  # центр самолёта по X
         cy = self.y + self.dy / 2  # центр самолёта по Y
-        angle_rad = math.radians(self.angle)  # курс в радианах
-        dlina = self.speed * VEKTOR_KADROV  # длина линии, пиксели
-        x2 = cx + dlina * math.cos(angle_rad)  # конец линии по X
-        y2 = cy - dlina * math.sin(angle_rad)  # конец линии по Y
-        pygame.draw.line(self.display, (0, 0, 0), (cx, cy), (x2, y2))
+        angle = self.angle  # курс на шаге линии
+        avto = self.avtopilot == True and isinstance(self.command, command_airplane_angle) == False  # дуга к аэропорту
+        tochki = [(cx, cy)]  # точки линии
+        if self.__v_kartinke(cx, cy) == False:
+            for _ in range(VEKTOR_KADROV):
+                if avto == True:
+                    angle = self.__dovorot(cx, cy, angle)
+                rad = math.radians(angle)  # курс шага в радианах
+                nx = cx + self.speed * math.cos(rad)  # следующий X
+                ny = cy - self.speed * math.sin(rad)  # следующий Y
+                if self.__v_kartinke(nx, ny) == True:
+                    tochki.append(self.__vhod_v_aeroport(cx, cy, nx, ny))
+                    break
+                cx = nx
+                cy = ny
+                tochki.append((cx, cy))
+        if len(tochki) > 1:
+            pygame.draw.lines(self.display, cvet, False, tochki, 2)
 
     # Четыре цифры: высота в десятках метров.
     def desyatki_metrov(self, metry):
@@ -149,9 +213,10 @@ class airplane:
             metry = self.visota_max
         self.zadana_visota = metry
 
-    # Ставит команду поворота, если другой команды ещё нет.
+    # Ставит команду поворота, если другой команды ещё нет, и снимает самолёт с маршрута.
     def add_angle(self,angle):
         if self.command is None:
+            self.avtopilot = False
             self.command_last_time=time.time()
             if angle>0:
                 self.command=command_airplane_angle(angle, True)  # поворот влево
@@ -171,6 +236,19 @@ class airplane:
     # Проверяет, попал ли клик в спрайт самолёта.
     def click(self,mouse_x,mouse_y)->bool:
         return self.camolet.click(mouse_x, mouse_y)
+
+    # Запоминает центр и половину размера картинки аэропорта. Без центра курс не меняется.
+    def set_aeroport(self, x, y, rx, ry):
+        self.aeroport_x = x
+        self.aeroport_y = y
+        self.aeroport_rx = rx
+        self.aeroport_ry = ry
+
+    # Включает автопилот и снимает незаконченный поворот.
+    def na_marshrut(self):
+        self.avtopilot = True
+        if isinstance(self.command, command_airplane_angle):
+            self.command = None
 
     # Задаёт множитель расхода топлива (1 обычный, 2 после выравнивания в зоне).
     def ymn_koef_ball(self,koef_ball):
@@ -290,6 +368,11 @@ class airplane:
                         self.command = None
                 self.command_last_time = time.time()
 
+        if self.avtopilot == True and isinstance(self.command, command_airplane_angle) == False:
+            cx = self.x + self.dx / 2  # центр самолёта по X
+            cy = self.y + self.dy / 2  # центр самолёта по Y
+            self.angle = self.__dovorot(cx, cy, self.angle)
+            self.camolet.set_angle(self.angle)
 
         angle_rad = math.radians(self.angle)  # курс в радианах для cos/sin
 

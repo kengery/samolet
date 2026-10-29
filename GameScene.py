@@ -30,6 +30,7 @@ class GameScene(Class.Scene):
         self.button_increase = Image(gameEngine.screenx * 0.4, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.093,self.display, 'image\\increase.png')  # быстрее
         self.button_reduce = Image(gameEngine.screenx * 0.3, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09,self.display, 'image\\reduse.png')  # медленнее
         self.button_visota = Image(gameEngine.screenx * 0.72, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09, self.display, 'image\\button1.png')  # ввод высоты
+        self.button_marshrut = Image(gameEngine.screenx * 0.82, gameEngine.screeny * 0, gameEngine.screenx * 0.08, gameEngine.screeny * 0.09, self.display, 'image\\button1.png')  # возврат на маршрут к аэропорту
         self.visota_input = False  # открыта ли плашка ввода высоты
         self.visota_text = ""  # набранные метры
         self.pole_x = 260  # левый край поля, справа от табличек
@@ -98,6 +99,8 @@ class GameScene(Class.Scene):
                     if self.button_visota.click(mouse_x, mouse_y):
                         self.visota_input = True
                         self.visota_text = ""
+                    if self.button_marshrut.click(mouse_x, mouse_y):
+                        self.click_airplane.na_marshrut()
 
 
     # Движение, столкновения, посадка, поле, запретные зоны и конец раунда.
@@ -198,7 +201,9 @@ class GameScene(Class.Scene):
         self.button_increase.render()
         self.button_reduce.render()
         self.button_visota.render()
+        self.button_marshrut.render()
         Figyrs.print_text(self.display, self.button_visota.x + self.gameEngine.screenx * 0.05, self.button_visota.y + self.gameEngine.screeny * 0.045, 22, (0, 0, 0), "Высота")
+        Figyrs.print_text(self.display, self.button_marshrut.x + self.gameEngine.screenx * 0.04, self.button_marshrut.y + self.gameEngine.screeny * 0.045, 22, (0, 0, 0), "Маршрут")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.45, self.gameEngine.screeny * 0.12, 20, (0, 0, 0), f"Столкновение, если разница высот < {VISOTA_SBLIGENIA_AIRPLANE} м")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.45, self.gameEngine.screeny * 0.15, 20, (0, 0, 0), f"Ветер, если разница высот < {Tyrbylentnost.VISOTA_SLOIA} м")
         self.__render_visota_input()
@@ -386,6 +391,7 @@ class GameScene(Class.Scene):
                                   i.speed,
                                   i.speed_min, i.speed_max, i.angle,
                                   i.benzin, i.visota_airplane, i.visota_min, i.visota_max)
+            s.set_aeroport(self.circle_x, self.circle_y, self.circle_radiusx, self.circle_radiusy)
             self.airplanes.append(s)
 
         self.button_finish = []  # зелёные таблички (сел)

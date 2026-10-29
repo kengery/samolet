@@ -47,7 +47,7 @@ class GameEngine:
 
             pygame.display.flip()
             pygame.display.update()
-            pygame.time.wait(30)
+            pygame.time.wait(100)
 
     # Переключает сцену; если есть путь к карте — запускает раунд.
     def change_scene(self, scene_name, level = ''):
