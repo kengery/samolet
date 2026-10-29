@@ -15,6 +15,7 @@ AVTOPILOT_GRAD = 0.5  # максимальный доворот к аэропо�
 TURB_NACHALO = 1.5  # секунды сноса в сторону зоны
 TURB_OBRATNO = TURB_NACHALO / 2  # секунды сноса в обратную сторону
 ROMB_R = 9  # половина диагонали ромба, пиксели
+CVET_CHUZHOY = (40, 100, 105)  # тусклая бирюза чужого борта
 
 @dataclass
 # Самолёт: полёт, топливо, команды курса и скорости.
@@ -35,7 +36,7 @@ class airplane:
     visota_max: float  # верхний предел высоты в метрах
 
     # Создаёт самолёт и задаёт стартовые поля полёта.
-    def __init__(self,x,y,dx,dy,display,file,name,speed,speed_min,speed_max,angle, benzin, visota_airplane, visota_min, visota_max):
+    def __init__(self,x,y,dx,dy,display,file,name,speed,speed_min,speed_max,angle, benzin, visota_airplane, visota_min, visota_max, nash=True):
         self.x=x  # левый край спрайта
         self.y=y  # верхний край спрайта
         self.dx=dx  # ширина спрайта
@@ -87,7 +88,9 @@ class airplane:
         self.ball_benz=0  # уже сожжённое топливо для баллов
         self.__koef_ball=1  # множитель расхода: 1 обычный, 2 после выравнивания в зоне
         self.click_camolet=False  # выбран ли этот самолёт
-        self.avtopilot = True  # сам доворачивает к аэропорту
+        self.nash = nash  # True, если борт нашего сектора
+        self.ushel = False  # чужой вышел за поле и снят с экрана
+        self.avtopilot = self.nash  # чужой держит курс из JSON
         self.aeroport_x = None  # центр аэропорта X, None пока карта не задала
         self.aeroport_y = None  # центр аэропорта Y
         self.aeroport_rx = None  # половина ширины картинки аэропорта
@@ -100,8 +103,12 @@ class airplane:
         self.command_angle=15  # шаг поворота в градусах
 
 
-    # Рисует ромб, формуляр, линию курса и след из последних 150 точек.
+    # Рисует ромб или квадрат, формуляр, линию курса и след из последних 150 точек.
     def render(self):
+        if self.nash == False:
+            cvet_teksta = CVET_CHUZHOY  # формуляр чужого
+        else:
+            cvet_teksta = (70, 220, 230)  # формуляр своего
         self.__render_vektor()
         if len(self.points) > 1:
             self.count_points = max(0, len(self.points) - 150)
@@ -110,20 +117,24 @@ class airplane:
                 m = self.points[i]  # текущая точка следа
                 pygame.draw.line(self.display, (0, 0, 0), (n.x, n.y), (m.x, m.y))  # отрезок следа между двумя точками
         self.__render_romb()
-        Figyrs.print_text(self.display,self.x+self.dx/2,self.y,23,(70, 220, 230),f"{self.name}")
-        Figyrs.print_text(self.display,self.x+self.dx/2,self.y+38,18,(70, 220, 230),self.visota_text())
-        Figyrs.print_text(self.display,self.x+self.dx/2,self.y+48,18,(70, 220, 230),f"{self.skorost_kmch()}")
+        Figyrs.print_text(self.display,self.x+self.dx/2,self.y,23,cvet_teksta,f"{self.name}")
+        Figyrs.print_text(self.display,self.x+self.dx/2,self.y+38,18,cvet_teksta,self.visota_text())
+        Figyrs.print_text(self.display,self.x+self.dx/2,self.y+48,18,cvet_teksta,f"{self.skorost_kmch()}")
 
-    # Ромб вместо картинки: жёлтый при смене высоты, белый выбран, иначе бирюза.
+    # Ромб своего борта или тусклый квадрат чужого.
     def __render_romb(self):
+        cx = self.x + self.dx / 2  # центр знака по X
+        cy = self.y + self.dy / 2  # центр знака по Y
+        if self.nash == False:
+            storona = ROMB_R * 2  # сторона квадрата чужого
+            pygame.draw.rect(self.display, CVET_CHUZHOY, (cx - ROMB_R, cy - ROMB_R, storona, storona))  # тусклый квадрат чужого
+            return
         if self.visota_airplane > self.visota_do or self.visota_airplane < self.visota_do:
             cvet = (230, 190, 40)  # набор или снижение
         elif self.click_camolet == True:
             cvet = (255, 255, 255)  # выбранный самолёт
         else:
             cvet = (70, 220, 230)  # обычный борт
-        cx = self.x + self.dx / 2  # центр ромба по X
-        cy = self.y + self.dy / 2  # центр ромба по Y
         tochki = [(cx, cy - ROMB_R), (cx + ROMB_R, cy), (cx, cy + ROMB_R), (cx - ROMB_R, cy)]  # вершины ромба
         pygame.draw.polygon(self.display, cvet, tochki)  # залитый ромб самолёта
 
@@ -170,7 +181,9 @@ class airplane:
 
     # Линия не длиннее VEKTOR_KADROV кадров. На краю картинки аэропорта обрывается. Снос не входит.
     def __render_vektor(self):
-        if self.click_camolet == True:
+        if self.nash == False:
+            cvet = (0, 70, 75)  # линия чужого тусклее
+        elif self.click_camolet == True:
             cvet = (0, 210, 220)  # выбранный самолёт
         else:
             cvet = (0, 120, 130)  # остальные тусклее
@@ -245,8 +258,10 @@ class airplane:
             else:
                 self.command = command_airplane_speed(-speed, False)  # замедлить
 
-    # Проверяет, попал ли клик в спрайт самолёта.
+    # Проверяет, попал ли клик в спрайт самолёта. Чужой не выбирается.
     def click(self,mouse_x,mouse_y)->bool:
+        if self.nash == False:
+            return False
         return self.camolet.click(mouse_x, mouse_y)
 
     # Запоминает центр и половину размера картинки аэропорта. Без центра курс не меняется.
@@ -294,9 +309,14 @@ class airplane:
 
     # Двигает самолёт за кадр: курс, скорость, высота, снос, топливо.
     def move(self):
+        if self.ushel == True:
+            return
         if self.benzin<=0:
             self.benzin=0
-            self.poteryan=True
+            if self.nash == False:
+                self.ushel = True
+            else:
+                self.poteryan=True
             return
         if self.finish==True or self.stolk==True or self.poteryan==True:
             return

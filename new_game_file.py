@@ -53,7 +53,8 @@ class new_game_file:
             benzin=plane['benzin'],
             visota_airplane=plane.get('visota_airplane', plane.get('altitude', 914)),
             visota_min=plane.get('visota_min', plane.get('altitude_min', 305)),
-            visota_max=plane.get('visota_max', plane.get('altitude_max', 3048))) for plane in data['airplanes']]
+            visota_max=plane.get('visota_max', plane.get('altitude_max', 3048)),
+            nash=plane.get('nash', True)) for plane in data['airplanes']]
 
         tyrbylentnosts = [Tyrbylentnost.Tyrbylentnost(  # зоны ветра
             x=plane['x'],

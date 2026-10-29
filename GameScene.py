@@ -110,14 +110,24 @@ class GameScene(Class.Scene):
         self.__update_move_airplanes()
         self.__calc_balls()
 
-        game_end = 0  # сколько самолётов уже с исходом
+        game_end = 0  # сколько своих самолётов уже с исходом
+        svoih = 0  # сколько своих самолётов на карте
         self.airplanes_stolk = 0
         self.airplanes_finish = 0
         self.airplanes_poteryan = 0
         for i in range(0, len(self.airplanes)):
+            if self.airplanes[i].nash == False:
+                if self.airplanes[i].ushel == False:
+                    if self.airplanes[i].x < self.pole_x or self.airplanes[i].x + self.airplanes[i].dx > self.pole_x2 or \
+                            self.airplanes[i].y < self.pole_y or self.airplanes[i].y + self.airplanes[i].dy > self.pole_y2:
+                        self.airplanes[i].ushel = True
+                continue
+            svoih = svoih + 1
             if self.airplanes[i].stolk == False and self.airplanes[i].finish == False and self.airplanes[
                 i].poteryan == False:
                 for j in range(i + 1, len(self.airplanes)):
+                    if self.airplanes[j].nash == False:
+                        continue
                     if self.airplanes[j].stolk == False and self.airplanes[j].finish == False:
                         x_2 = self.airplanes[i].x + self.airplanes[i].dx / 2  # центр первого по X
                         x_1 = self.airplanes[j].x + self.airplanes[j].dx / 2  # центр второго по X
@@ -175,7 +185,7 @@ class GameScene(Class.Scene):
                 i].poteryan == True:
                 game_end = game_end + 1
 
-        if game_end == len(self.airplanes):
+        if svoih > 0 and game_end == svoih:
             self.end_game = True
 
     # Рисует тёмный фон окна и прямоугольник поля с рамкой.
@@ -221,9 +231,11 @@ class GameScene(Class.Scene):
         #for i in range(0, len(self.Pogoda)):
         #    self.Pogoda[i].render()
 
-    # Рисует летящие самолёты ромбом.
+    # Рисует летящие самолёты: свой ромбом, чужой тусклым квадратом.
     def __render_airplanes(self):
         for i in range(0, len(self.airplanes)):
+            if self.airplanes[i].ushel == True:
+                continue
             if self.airplanes[i].stolk == False and self.airplanes[i].finish == False and self.airplanes[
                 i].poteryan == False:
                 self.airplanes[i].render()
@@ -242,6 +254,8 @@ class GameScene(Class.Scene):
         if self.button_airplane is None:
             return
         for i in range(0, len(self.button_airplane)):
+            if self.airplanes[i].nash == False:
+                continue
             if self.airplanes[i].stolk != True:
                 self.button_airplane[i].render_poloska()
             else:
@@ -261,6 +275,9 @@ class GameScene(Class.Scene):
     # Двигает самолёты: доклад зоны при входе, снос и множитель топлива.
     def __update_move_airplanes(self):
         for i in range(0,len(self.airplanes)):
+            if self.airplanes[i].nash == False:
+                self.airplanes[i].move()
+                continue
             zona = None  # зона, в которой самолёт в этом кадре
             for j in range(0, len(self.Tyrbylentnost)):
                 popal = self.Tyrbylentnost[j].select(self.airplanes[i].x,self.airplanes[i].y,self.airplanes[i].dx,self.airplanes[i].dy,self.airplanes[i].visota_airplane)  # самолёт в турбулентной зоне
@@ -277,6 +294,8 @@ class GameScene(Class.Scene):
     def __calc_balls(self):
         self.ball=0
         for i in range(0, len(self.airplanes)):
+            if self.airplanes[i].nash == False:
+                continue
             if self.airplanes[i].stolk == False and self.airplanes[i].poteryan == False:
                 self.ball = self.ball + self.airplanes[i].ball_benz
             else:
@@ -320,6 +339,8 @@ class GameScene(Class.Scene):
             print(f"ищем {cmd["name"]} ")
             plane = None  # найденный самолёт по имени
             for p in self.airplanes:
+                if p.nash == False:
+                    continue
                 if MyMicrophone.MyMicrophone.same_plane_name(p.name.lower(), cmd["name"]):
                     plane = p
                     break
@@ -335,6 +356,8 @@ class GameScene(Class.Scene):
     def __select_airplane(self, mouse_x, mouse_y):
         # Выбор таблички самолета
         for i in range(0, len(self.button_airplane)):
+            if self.button_airplane[i].airplane.nash == False:
+                continue
             if self.button_airplane[i].click(mouse_x, mouse_y):
                 if self.click_airplane is not None:
                     self.click_airplane.click_camolet=False
@@ -382,7 +405,7 @@ class GameScene(Class.Scene):
                                   self.display, i.file, i.name,
                                   i.speed,
                                   i.speed_min, i.speed_max, i.angle,
-                                  i.benzin, i.visota_airplane, i.visota_min, i.visota_max)
+                                  i.benzin, i.visota_airplane, i.visota_min, i.visota_max, i.nash)
             s.set_aeroport(self.circle_x, self.circle_y, self.circle_radiusx, self.circle_radiusy)
             self.airplanes.append(s)
 

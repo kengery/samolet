@@ -63,6 +63,40 @@
       "visota_airplane": 2438,
       "visota_min": 305,
       "visota_max": 3048
+    },
+    {
+      "x": 400,
+      "y": 780,
+      "dx": 32.3,
+      "dy": 30.15,
+      "name": "Борт1",
+      "file": "image\\camolet2.png",
+      "speed": 2,
+      "speed_min": 0.5,
+      "speed_max": 4,
+      "angle": 0,
+      "benzin": 1500,
+      "visota_airplane": 3048,
+      "visota_min": 305,
+      "visota_max": 3048,
+      "nash": false
+    },
+    {
+      "x": 1600,
+      "y": 180,
+      "dx": 32.3,
+      "dy": 30.15,
+      "name": "Борт2",
+      "file": "image\\camolet2.png",
+      "speed": 2,
+      "speed_min": 0.5,
+      "speed_max": 4,
+      "angle": 180,
+      "benzin": 1500,
+      "visota_airplane": 400,
+      "visota_min": 305,
+      "visota_max": 3048,
+      "nash": false
     }
   ],
   "tyrbylentnosts": [
