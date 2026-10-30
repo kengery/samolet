@@ -36,7 +36,7 @@ class airplane:
     visota_max: float  # верхний предел высоты в метрах
 
     # Создаёт самолёт и задаёт стартовые поля полёта.
-    def __init__(self,x,y,dx,dy,display,file,name,speed,speed_min,speed_max,angle, benzin, visota_airplane, visota_min, visota_max, nash=True):
+    def __init__(self,x,y,dx,dy,display,file,name,speed,speed_min,speed_max,angle, benzin, visota_airplane, visota_min, visota_max, nash=True, v_hod=None):
         self.x=x  # левый край спрайта
         self.y=y  # верхний край спрайта
         self.dx=dx  # ширина спрайта
@@ -95,6 +95,18 @@ class airplane:
         self.aeroport_y = None  # центр аэропорта Y
         self.aeroport_rx = None  # половина ширины картинки аэропорта
         self.aeroport_ry = None  # половина высоты картинки аэропорта
+        self.v_hod = v_hod  # id проёма на рамке, None — летит в аэропорт
+        self.na_v_hod = False  # True, если цель — проём, а не аэропорт
+        self.cherez_granicu = False  # ушёл через свой проём
+        self.cel_x = None  # X цели автопилота: аэропорт или середина проёма
+        self.cel_y = None  # Y цели автопилота
+        self.granica_storona = None  # сторона проёма: verh, niz, levo, pravo
+        self.granica_a = None  # начало отрезка проёма вдоль рамки
+        self.granica_b = None  # конец отрезка проёма вдоль рамки
+        self.pole_x = None  # левый край поля, для линии к проёму
+        self.pole_y = None  # верхний край поля
+        self.pole_x2 = None  # правый край поля
+        self.pole_y2 = None  # нижний край поля
 
         self.command_last_time=time.time()  # когда последний раз применили команду
         self.command=None  # текущая команда курса или скорости
@@ -138,11 +150,11 @@ class airplane:
         tochki = [(cx, cy - ROMB_R), (cx + ROMB_R, cy), (cx, cy + ROMB_R), (cx - ROMB_R, cy)]  # вершины ромба
         pygame.draw.polygon(self.display, cvet, tochki)  # залитый ромб самолёта
 
-    # Курс после доворота к аэропорту не больше чем на AVTOPILOT_GRAD. Без аэропорта угол тот же.
+    # Курс после доворота к цели не больше чем на AVTOPILOT_GRAD. Без цели угол тот же.
     def __dovorot(self, cx, cy, angle):
-        if self.aeroport_x is None:
+        if self.cel_x is None:
             return angle
-        cel = math.degrees(math.atan2(cy - self.aeroport_y, self.aeroport_x - cx))  # курс на центр аэропорта
+        cel = math.degrees(math.atan2(cy - self.cel_y, self.cel_x - cx))  # курс на аэропорт или середину проёма
         raznica = (cel - angle + 180) % 360 - 180  # кратчайший доворот, градусы
         if raznica > AVTOPILOT_GRAD:
             raznica = AVTOPILOT_GRAD
@@ -179,7 +191,36 @@ class airplane:
                     t_hit = t
         return (x1 + t_hit * dx, y1 + t_hit * dy)
 
-    # Линия не длиннее VEKTOR_KADROV кадров. На краю картинки аэропорта обрывается. Снос не входит.
+    # True, если точка ещё внутри прямоугольника поля.
+    def __v_pole(self, x, y):
+        if self.pole_x is None:
+            return False
+        return self.pole_x <= x <= self.pole_x2 and self.pole_y <= y <= self.pole_y2
+
+    # Точка, где отрезок выходит на рамку поля.
+    def __vhod_v_pole(self, x1, y1, x2, y2):
+        left = self.pole_x  # левый край поля
+        right = self.pole_x2  # правый край поля
+        top = self.pole_y  # верхний край поля
+        bottom = self.pole_y2  # нижний край поля
+        dx = x2 - x1  # шаг по X
+        dy = y2 - y1  # шаг по Y
+        t_hit = 1  # доля шага до рамки
+        if dx != 0:
+            for i in (left, right):
+                t = (i - x1) / dx  # доля шага до вертикального края
+                y = y1 + t * dy  # Y на этом крае
+                if 0 <= t <= 1 and top <= y <= bottom and t < t_hit:
+                    t_hit = t
+        if dy != 0:
+            for i in (top, bottom):
+                t = (i - y1) / dy  # доля шага до горизонтального края
+                x = x1 + t * dx  # X на этом крае
+                if 0 <= t <= 1 and left <= x <= right and t < t_hit:
+                    t_hit = t
+        return (x1 + t_hit * dx, y1 + t_hit * dy)
+
+    # Линия не длиннее VEKTOR_KADROV кадров. На краю аэропорта или на рамке проёма обрывается. Снос не входит.
     def __render_vektor(self):
         if self.nash == False:
             cvet = (0, 70, 75)  # линия чужого тусклее
@@ -190,16 +231,24 @@ class airplane:
         cx = self.x + self.dx / 2  # центр самолёта по X
         cy = self.y + self.dy / 2  # центр самолёта по Y
         angle = self.angle  # курс на шаге линии
-        avto = self.avtopilot == True and isinstance(self.command, command_airplane_angle) == False  # дуга к аэропорту
+        avto = self.avtopilot == True and isinstance(self.command, command_airplane_angle) == False  # дуга к цели
         tochki = [(cx, cy)]  # точки линии
-        if self.__v_kartinke(cx, cy) == False:
+        if self.na_v_hod == True:
+            risovat = self.__v_pole(cx, cy)  # линия к проёму, пока центр в поле
+        else:
+            risovat = self.__v_kartinke(cx, cy) == False  # линия к аэропорту, пока центр вне картинки
+        if risovat == True:
             for _ in range(VEKTOR_KADROV):
                 if avto == True:
                     angle = self.__dovorot(cx, cy, angle)
                 rad = math.radians(angle)  # курс шага в радианах
                 nx = cx + self.speed * math.cos(rad)  # следующий X
                 ny = cy - self.speed * math.sin(rad)  # следующий Y
-                if self.__v_kartinke(nx, ny) == True:
+                if self.na_v_hod == True:
+                    if self.__v_pole(nx, ny) == False:
+                        tochki.append(self.__vhod_v_pole(cx, cy, nx, ny))
+                        break
+                elif self.__v_kartinke(nx, ny) == True:
                     tochki.append(self.__vhod_v_aeroport(cx, cy, nx, ny))
                     break
                 cx = nx
@@ -264,12 +313,39 @@ class airplane:
             return False
         return self.camolet.click(mouse_x, mouse_y)
 
-    # Запоминает центр и половину размера картинки аэропорта. Без центра курс не меняется.
+    # Запоминает центр и половину размера картинки аэропорта. Без своего проёма цель — этот центр.
     def set_aeroport(self, x, y, rx, ry):
         self.aeroport_x = x
         self.aeroport_y = y
         self.aeroport_rx = rx
         self.aeroport_ry = ry
+        if self.na_v_hod == False:
+            self.cel_x = x
+            self.cel_y = y
+
+    # Цель автопилота — середина проёма на рамке. Линия курса обрывается на этой рамке.
+    def set_v_hod(self, storona, a, b, pole_x, pole_y, pole_x2, pole_y2):
+        self.na_v_hod = True
+        self.granica_storona = storona
+        self.granica_a = a
+        self.granica_b = b
+        self.pole_x = pole_x
+        self.pole_y = pole_y
+        self.pole_x2 = pole_x2
+        self.pole_y2 = pole_y2
+        seredina = (a + b) / 2  # середина отрезка проёма
+        if storona == "verh":
+            self.cel_x = seredina
+            self.cel_y = pole_y
+        elif storona == "niz":
+            self.cel_x = seredina
+            self.cel_y = pole_y2
+        elif storona == "levo":
+            self.cel_x = pole_x
+            self.cel_y = seredina
+        else:
+            self.cel_x = pole_x2
+            self.cel_y = seredina
 
     # Включает автопилот и снимает незаконченный поворот.
     def na_marshrut(self):

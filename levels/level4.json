@@ -30,7 +30,8 @@
       "benzin": 1500,
       "visota_airplane": 1219,
       "visota_min": 305,
-      "visota_max": 3048
+      "visota_max": 3048,
+      "v_hod": "verh"
     },
     {
       "x": 1650.0,
@@ -46,7 +47,8 @@
       "benzin": 1500,
       "visota_airplane": 1829,
       "visota_min": 305,
-      "visota_max": 3048
+      "visota_max": 3048,
+      "v_hod": "pravo"
     },
     {
       "x": 300.0,
@@ -172,5 +174,9 @@
   "finish_x": 340.0,
   "finish_y": 500.0,
   "finish_rx": 57.0,
-  "finish_ry": 60.3
+  "finish_ry": 60.3,
+  "v_hody": [
+    { "id": "verh", "storona": "verh", "a": 1450, "b": 1610 },
+    { "id": "pravo", "storona": "pravo", "a": 780, "b": 940 }
+  ]
 }

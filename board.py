@@ -46,8 +46,23 @@ class board:
         Figyrs.print_text_left(self.display, left, self.y + self.dy * 0.40, 18, self.stroka_cvet, f"{vysota} м")
         Figyrs.print_text_left(self.display, left, self.y + self.dy * 0.62, 18, self.stroka_cvet, f"{skorost} км/ч")
         Figyrs.print_text_left(self.display, left, self.y + self.dy * 0.84, 18, self.stroka_cvet, f"топл. {toplivo}%")
+        Figyrs.print_text_right(self.display, self.x + self.dx - 8, self.y + self.dy * 0.84, 16, self.stroka_cvet, self.__kuda())
         if self.airplane.Zapr_zon == True:
             Figyrs.print_text_left(self.display, self.x + self.dx - 150, self.y + self.dy * 0.18, 20, self.veter_cvet, "турбулентная зона")
+
+    # Куда летит рейс: аэропорт или сторона своего проёма.
+    def __kuda(self):
+        if self.airplane.na_v_hod == False:
+            return "аэропорт"
+        if self.airplane.granica_storona == "verh":
+            return "верх"
+        if self.airplane.granica_storona == "niz":
+            return "низ"
+        if self.airplane.granica_storona == "levo":
+            return "лево"
+        if self.airplane.granica_storona == "pravo":
+            return "право"
+        return "аэропорт"
 
     # Проверяет, попал ли клик в табличку.
     def click(self,mouse_x,mouse_y)->bool:

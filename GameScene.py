@@ -30,7 +30,7 @@ class GameScene(Class.Scene):
         self.button_increase = Image(gameEngine.screenx * 0.4, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.093,self.display, 'image\\increase.png')  # быстрее
         self.button_reduce = Image(gameEngine.screenx * 0.3, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09,self.display, 'image\\reduse.png')  # медленнее
         self.button_visota = Image(gameEngine.screenx * 0.72, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09, self.display, 'image\\button1.png')  # ввод высоты
-        self.button_marshrut = Image(gameEngine.screenx * 0.82, gameEngine.screeny * 0, gameEngine.screenx * 0.08, gameEngine.screeny * 0.09, self.display, 'image\\button1.png')  # возврат на маршрут к аэропорту
+        self.button_marshrut = Image(gameEngine.screenx * 0.82, gameEngine.screeny * 0, gameEngine.screenx * 0.08, gameEngine.screeny * 0.09, self.display, 'image\\button1.png')  # возврат на маршрут к своей цели
         self.visota_input = False  # открыта ли плашка ввода высоты
         self.visota_text = ""  # набранные метры
         self.pole_x = 260  # левый край поля, справа от табличек
@@ -50,8 +50,10 @@ class GameScene(Class.Scene):
         self.circle_radiusy = 0  # половина высоты аэропорта
         self.end_game=False  # все самолёты уже имеют исход
         self.airplanes_stolk=0  # сколько столкнулись
-        self.airplanes_finish=0  # сколько сели
+        self.airplanes_finish=0  # сколько сели в аэропорт
+        self.airplanes_granica=0  # сколько ушли через свой проём
         self.airplanes_poteryan=0  # сколько потеряны
+        self.v_hody = []  # проёмы на рамке этой карты
         self.ball = 0  # сумма расхода и штрафов
         #self.points=[point.point(200, 300), point.point(700, 200), point.point(700, 800), point.point(500, 400)]
         self.n_zona=[]  # запретные многоугольники карты
@@ -103,7 +105,7 @@ class GameScene(Class.Scene):
                         self.click_airplane.na_marshrut()
 
 
-    # Движение, столкновения, посадка, поле, запретные зоны и конец раунда.
+    # Движение, столкновения, посадка, проём на рамке, поле, запретные зоны и конец раунда.
     def update(self):
 
         self.__update_tyrbylentnost()
@@ -114,6 +116,7 @@ class GameScene(Class.Scene):
         svoih = 0  # сколько своих самолётов на карте
         self.airplanes_stolk = 0
         self.airplanes_finish = 0
+        self.airplanes_granica = 0
         self.airplanes_poteryan = 0
         for i in range(0, len(self.airplanes)):
             if self.airplanes[i].nash == False:
@@ -144,7 +147,7 @@ class GameScene(Class.Scene):
                             self.airplanes[j].stolk = True
 
             if self.airplanes[i].stolk == False and self.airplanes[i].finish == False and self.airplanes[
-                i].poteryan == False:
+                i].poteryan == False and self.airplanes[i].na_v_hod == False:
                 x1 = self.airplanes[i].x + self.airplanes[i].dx / 2  # центр самолёта X
                 y1 = self.airplanes[i].y + self.airplanes[i].dy / 2  # центр самолёта Y
                 x2 = self.circle_x  # центр аэропорта X
@@ -157,8 +160,11 @@ class GameScene(Class.Scene):
 
             if self.airplanes[i].stolk == False and self.airplanes[i].finish == False and self.airplanes[
                 i].poteryan == False:
-                if self.airplanes[i].x < self.pole_x or self.airplanes[i].x + self.airplanes[i].dx > self.pole_x2 or \
-                        self.airplanes[i].y < self.pole_y or self.airplanes[i].y + self.airplanes[i].dy > self.pole_y2:
+                ishod = self.__ishod_ramki(self.airplanes[i])  # успех в проёме, ещё летит или потеря
+                if ishod == "uspeh":
+                    self.airplanes[i].finish = True
+                    self.airplanes[i].cherez_granicu = True
+                elif ishod == "poteryan":
                     self.airplanes[i].poteryan = True
             """
             if self.airplanes[i].stolk == False and self.airplanes[i].finish == False and self.airplanes[
@@ -176,8 +182,10 @@ class GameScene(Class.Scene):
 
             if self.airplanes[i].stolk == True:
                 self.airplanes_stolk = self.airplanes_stolk + 1
-            if self.airplanes[i].finish == True:
+            if self.airplanes[i].finish == True and self.airplanes[i].cherez_granicu == False:
                 self.airplanes_finish = self.airplanes_finish + 1
+            if self.airplanes[i].cherez_granicu == True:
+                self.airplanes_granica = self.airplanes_granica + 1
             if self.airplanes[i].poteryan == True:
                 self.airplanes_poteryan = self.airplanes_poteryan + 1
 
@@ -194,6 +202,80 @@ class GameScene(Class.Scene):
         pole = (self.pole_x, self.pole_y, self.pole_x2 - self.pole_x, self.pole_y2 - self.pole_y)  # прямоугольник поля
         pygame.draw.rect(self.display, self.pole_cvet, pole)  # заливка поля
         pygame.draw.rect(self.display, self.ramka_cvet, pole, 2)  # рамка поля толщиной 2
+        self.__render_proemy()
+
+    # Рисует разрыв рамки на каждом проёме и засечки по концам.
+    def __render_proemy(self):
+        for v_hod in self.v_hody:
+            self.__render_proem(v_hod)
+
+    # Закрашивает отрезок рамки цветом поля и ставит короткие засечки.
+    def __render_proem(self, v_hod):
+        a = v_hod.a  # начало проёма вдоль рамки
+        b = v_hod.b  # конец проёма вдоль рамки
+        if v_hod.storona == "verh" or v_hod.storona == "niz":
+            y = self.pole_y if v_hod.storona == "verh" else self.pole_y2  # сторона рамки
+            pygame.draw.line(self.display, self.pole_cvet, (a, y), (b, y), 4)  # разрыв бирюзовой линии
+            pygame.draw.line(self.display, self.ramka_cvet, (a, y - 8), (a, y + 8), 2)  # засечка в начале
+            pygame.draw.line(self.display, self.ramka_cvet, (b, y - 8), (b, y + 8), 2)  # засечка в конце
+        else:
+            x = self.pole_x if v_hod.storona == "levo" else self.pole_x2  # сторона рамки
+            pygame.draw.line(self.display, self.pole_cvet, (x, a), (x, b), 4)  # разрыв бирюзовой линии
+            pygame.draw.line(self.display, self.ramka_cvet, (x - 8, a), (x + 8, a), 2)  # засечка в начале
+            pygame.draw.line(self.display, self.ramka_cvet, (x - 8, b), (x + 8, b), 2)  # засечка в конце
+
+    # True, если край спрайта вышел за прямоугольник поля.
+    def __za_polem(self, plane):
+        return plane.x < self.pole_x or plane.x + plane.dx > self.pole_x2 or plane.y < self.pole_y or plane.y + plane.dy > self.pole_y2
+
+    # True, если центр самолёта уже за этой стороной рамки.
+    def __centr_za(self, plane, storona):
+        cx = plane.x + plane.dx / 2  # центр по X
+        cy = plane.y + plane.dy / 2  # центр по Y
+        if storona == "verh":
+            return cy <= self.pole_y
+        if storona == "niz":
+            return cy >= self.pole_y2
+        if storona == "levo":
+            return cx <= self.pole_x
+        if storona == "pravo":
+            return cx >= self.pole_x2
+        return False
+
+    # True, если координата центра вдоль рамки лежит в отрезке своего проёма.
+    def __vdol_proema(self, plane):
+        cx = plane.x + plane.dx / 2  # центр по X
+        cy = plane.y + plane.dy / 2  # центр по Y
+        if plane.granica_storona == "verh" or plane.granica_storona == "niz":
+            return plane.granica_a <= cx <= plane.granica_b
+        return plane.granica_a <= cy <= plane.granica_b
+
+    # None, пока спрайт в поле. Иначе uspeh, letit или poteryan.
+    def __ishod_ramki(self, plane):
+        if self.__za_polem(plane) == False:
+            return None
+        if plane.na_v_hod == False:
+            return "poteryan"
+        vdol = self.__vdol_proema(plane)  # центр вдоль рамки в своём отрезке
+        svoya = self.__centr_za(plane, plane.granica_storona)  # центр пересёк сторону проёма
+        drugaya = False  # центр пересёк другую сторону
+        for storona in ("verh", "niz", "levo", "pravo"):
+            if storona != plane.granica_storona and self.__centr_za(plane, storona) == True:
+                drugaya = True
+        if svoya == True and vdol == True and drugaya == False:
+            return "uspeh"
+        v_proem = False  # край спрайта вышел в сторону своего проёма
+        if plane.granica_storona == "levo" and plane.x < self.pole_x:
+            v_proem = True
+        elif plane.granica_storona == "pravo" and plane.x + plane.dx > self.pole_x2:
+            v_proem = True
+        elif plane.granica_storona == "verh" and plane.y < self.pole_y:
+            v_proem = True
+        elif plane.granica_storona == "niz" and plane.y + plane.dy > self.pole_y2:
+            v_proem = True
+        if vdol == True and drugaya == False and svoya == False and v_proem == True:
+            return "letit"
+        return "poteryan"
 
     # Рисует поле, зоны, кнопки, аэропорт, самолёты и итог раунда.
     def render(self):
@@ -240,13 +322,14 @@ class GameScene(Class.Scene):
                 i].poteryan == False:
                 self.airplanes[i].render()
 
-    # Показывает итоговое окно: баллы, столкнулись, потеряны, сели.
+    # Показывает итоговое окно: баллы, столкнулись, потеряны, сели и ушли через границу.
     def __render_end_game(self):
         Figyrs.kvadr_poly(self.gameEngine.screenx*0.25,self.gameEngine.screeny*0.25,self.gameEngine.screenx*0.5,self.gameEngine.screeny*0.4,200,self.display)
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.505, self.gameEngine.screeny * 0.35,80, (0, 0, 0),f"Баллы = {int(self.ball)}")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.4,self.gameEngine.screeny * 0.45,40,(0,0,0),f"Столкнулись = {self.airplanes_stolk}")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, self.gameEngine.screeny * 0.5, 40, (0, 0, 0),f"Потерянны = {self.airplanes_poteryan}")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.62, self.gameEngine.screeny * 0.45,40, (0, 0, 0),f"Прилетели в аэропорт = {self.airplanes_finish}")
+        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, self.gameEngine.screeny * 0.56, 40, (0, 0, 0), f"Ушли через границу = {self.airplanes_granica}")
 
 
     # Рисует таблички слева: обычная, красная или зелёная.
@@ -405,9 +488,15 @@ class GameScene(Class.Scene):
                                   self.display, i.file, i.name,
                                   i.speed,
                                   i.speed_min, i.speed_max, i.angle,
-                                  i.benzin, i.visota_airplane, i.visota_min, i.visota_max, i.nash)
+                                  i.benzin, i.visota_airplane, i.visota_min, i.visota_max, i.nash, i.v_hod)
             s.set_aeroport(self.circle_x, self.circle_y, self.circle_radiusx, self.circle_radiusy)
+            if s.v_hod is not None:
+                for j in nn.v_hody:
+                    if j.id == s.v_hod:
+                        s.set_v_hod(j.storona, j.a, j.b, self.pole_x, self.pole_y, self.pole_x2, self.pole_y2)
             self.airplanes.append(s)
+
+        self.v_hody = nn.v_hody
 
         self.button_finish = []  # зелёные таблички (сел)
         self.button_airplane = []  # обычные таблички
@@ -416,7 +505,7 @@ class GameScene(Class.Scene):
         for i in range(0, len(self.airplanes)):
             tab_y = 12 + i * 110  # верх таблички
             a = board.board(12, tab_y, 220, 96, self.display, 'image\\button1.png', self.airplanes[i], (0, 210, 220))  # летит, бирюзовая рамка
-            s = board.board(12, tab_y, 220, 96, self.display, 'image\\button_green.png', self.airplanes[i], (0, 255, 0))  # сел, зелёная рамка
+            s = board.board(12, tab_y, 220, 96, self.display, 'image\\button_green.png', self.airplanes[i], (0, 255, 0))  # сел или ушёл через проём
             d = board.board(12, tab_y, 220, 96, self.display, 'image\\button_red.png', self.airplanes[i], (255, 0, 0))  # потерян, красная рамка
             self.button_airplane.append(a)
             self.button_finish.append(s)
