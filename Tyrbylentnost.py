@@ -65,8 +65,8 @@ class Tyrbylentnost:
     # Сдвигает центр по ветру зоны и высоту слоя. Края экрана не разворачивают.
     def move(self):
         rad = math.radians(self.napravlenie)  # направление ветра в радианах
-        self.x = self.x + math.cos(rad) * SKOROST_ZONY
-        self.y = self.y - math.sin(rad) * SKOROST_ZONY
+        self.x = self.x + math.cos(rad) * SKOROST_ZONY  # сдвиг центра по X
+        self.y = self.y - math.sin(rad) * SKOROST_ZONY  # сдвиг центра по Y, ось экрана вниз
         self.visota = self.visota + self.hod_visota
 
     # True, если центр самолёта попал в квадрат и в слой высоты зоны.

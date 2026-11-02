@@ -31,6 +31,10 @@ class GameScene(Class.Scene):
         self.button_reduce = Image(gameEngine.screenx * 0.3, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09,self.display, 'image\\reduse.png')  # медленнее
         self.button_visota = Image(gameEngine.screenx * 0.72, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09, self.display, 'image\\button1.png')  # ввод высоты
         self.button_marshrut = Image(gameEngine.screenx * 0.82, gameEngine.screeny * 0, gameEngine.screenx * 0.08, gameEngine.screeny * 0.09, self.display, 'image\\button1.png')  # возврат на маршрут к своей цели
+        self.izmenit_w = gameEngine.screenx * 0.3 - 248 - 12  # ширина кнопки до «медленнее»
+        self.button_izmenit = Image(248, 0, self.izmenit_w, gameEngine.screeny * 0.09, self.display, 'image\\button1.png')  # ввод маршрута точками
+        self.risuet_marshrut = False  # идёт ли расстановка точек
+        self.chernovik = []  # точки до правого клика
         self.visota_input = False  # открыта ли плашка ввода высоты
         self.visota_text = ""  # набранные метры
         self.pole_x = 260  # левый край поля, справа от табличек
@@ -59,7 +63,7 @@ class GameScene(Class.Scene):
         self.n_zona=[]  # запретные многоугольники карты
         self.my_microphone = MyMicrophone.MyMicrophone()  # запись голоса по пробелу
 
-    # Клики, клавиши, голос и кнопки курса/скорости/высоты.
+    # Клики, клавиши, голос и кнопки курса, скорости, высоты и маршрута.
     def handle_events(self, events):
         self.__process_voice_commands()
         for event in events:
@@ -79,30 +83,52 @@ class GameScene(Class.Scene):
                     self.my_microphone.space_pressed()
             if event.type == pygame.KEYUP and event.key == pygame.K_SPACE:
                 self.my_microphone.space_released()
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                self.risuet_marshrut = False
+                self.chernovik = []
 
             mouse_x, mouse_y = pygame.mouse.get_pos()  # координаты курсора
 
             if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 3:
+                    self.__zakonchit_marshrut()
+                    continue
+                if event.button != 1:
+                    continue
                 if self.button_exit.click(mouse_x, mouse_y):
                     self.gameEngine.change_scene("menu")
-                for i in range(0, len(self.airplanes)):
-                #    if self.airplanes[i].click(mouse_x, mouse_y):
-                        self.__select_airplane(mouse_x, mouse_y)
-
+                    continue
+                na_knopke = False  # клик пришёлся на кнопку, точку не ставим
                 if self.click_airplane is not None:
                     if self.button_pravo.click(mouse_x, mouse_y):
                         self.click_airplane.add_angle(-15)
+                        na_knopke = True
                     if self.button_levo.click(mouse_x, mouse_y):
                         self.click_airplane.add_angle(15)
+                        na_knopke = True
                     if self.button_increase.click(mouse_x, mouse_y):
                         self.click_airplane.add_speed(1)
+                        na_knopke = True
                     if self.button_reduce.click(mouse_x, mouse_y):
                         self.click_airplane.add_speed(-1)
+                        na_knopke = True
                     if self.button_visota.click(mouse_x, mouse_y):
                         self.visota_input = True
                         self.visota_text = ""
+                        na_knopke = True
                     if self.button_marshrut.click(mouse_x, mouse_y):
                         self.click_airplane.na_marshrut()
+                        na_knopke = True
+                    if self.button_izmenit.click(mouse_x, mouse_y):
+                        self.risuet_marshrut = True
+                        self.chernovik = []
+                        na_knopke = True
+                vybral = False  # клик выбрал самолёт
+                if getattr(self, "airplanes", None):
+                    vybral = self.__select_airplane(mouse_x, mouse_y)
+                if na_knopke == False and vybral == False and self.risuet_marshrut == True and self.click_airplane is not None:
+                    if self.pole_x <= mouse_x <= self.pole_x2 and self.pole_y <= mouse_y <= self.pole_y2:
+                        self.__dobavit_tochku(mouse_x, mouse_y)
 
 
     # Движение, столкновения, посадка, проём на рамке, поле, запретные зоны и конец раунда.
@@ -294,8 +320,11 @@ class GameScene(Class.Scene):
         self.button_reduce.render()
         self.button_visota.render()
         self.button_marshrut.render()
+        self.button_izmenit.render()
+        self.__render_chernovik()
         Figyrs.print_text(self.display, self.button_visota.x + self.gameEngine.screenx * 0.05, self.button_visota.y + self.gameEngine.screeny * 0.045, 22, (0, 0, 0), "Высота")
         Figyrs.print_text(self.display, self.button_marshrut.x + self.gameEngine.screenx * 0.04, self.button_marshrut.y + self.gameEngine.screeny * 0.045, 22, (0, 0, 0), "Маршрут")
+        Figyrs.print_text(self.display, self.button_izmenit.x + self.izmenit_w / 2, self.button_izmenit.y + self.gameEngine.screeny * 0.045, 22, (0, 0, 0), "Изменить маршрут")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.45, self.gameEngine.screeny * 0.12, 20, (0, 0, 0), f"Столкновение, если разница высот < {VISOTA_SBLIGENIA_AIRPLANE} м")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.45, self.gameEngine.screeny * 0.15, 20, (0, 0, 0), f"Ветер, если разница высот < {Tyrbylentnost.VISOTA_SLOIA} м")
         self.__render_visota_input()
@@ -435,33 +464,75 @@ class GameScene(Class.Scene):
             elif cmd["type"] == "speed":
                 plane.add_speed(cmd["value"]/100)
 
-    # Выбирает самолёт кликом по табличке или по спрайту.
+    # Ставит выбранным этот борт. Чужой самолёт сбрасывает незаписанные точки.
+    def __vzyat_samolet(self, plane):
+        if self.click_airplane is not None and self.click_airplane is not plane:
+            self.risuet_marshrut = False
+            self.chernovik = []
+        if self.click_airplane is not None:
+            self.click_airplane.click_camolet = False
+        self.click_airplane = plane
+        self.click_airplane.click_camolet = True
+
+    # Правый клик записывает точки. Без точек ввод просто закрывается.
+    def __zakonchit_marshrut(self):
+        if self.risuet_marshrut == False or self.click_airplane is None:
+            return
+        if len(self.chernovik) > 0:
+            self.click_airplane.zadat_tochki(self.chernovik)
+        self.risuet_marshrut = False
+        self.chernovik = []
+
+    # Добавляет точку черновика, если она не вплотную к предыдущей.
+    def __dobavit_tochku(self, x, y):
+        if len(self.chernovik) > 0:
+            px, py = self.chernovik[-1]  # предыдущая точка
+            if math.hypot(x - px, y - py) < 8:  # расстояние до предыдущей точки меньше 8 пикселей
+                return
+        self.chernovik.append((x, y))
+
+    # Рисует ещё не записанный маршрут: дуги по точкам и линия до курсора.
+    def __render_chernovik(self):
+        if self.risuet_marshrut == False or self.click_airplane is None:
+            return
+        plane = self.click_airplane  # борт, которому рисуем маршрут
+        cx = plane.x + plane.dx / 2  # центр борта по X
+        cy = plane.y + plane.dy / 2  # центр борта по Y
+        pts = [(cx, cy)]  # линия с борта
+        for t in self.chernovik:
+            pts.append(t)
+        mx, my = pygame.mouse.get_pos()  # курсор, конец черновика
+        pts.append((mx, my))
+        liniya, _ = plane.liniya_skrugleniya(pts, None, False)  # без хвоста к цели
+        if len(liniya) > 1:
+            pygame.draw.lines(self.display, (180, 255, 255), False, liniya, 2)  # черновик
+        for tx, ty in self.chernovik:
+            pygame.draw.circle(self.display, (180, 255, 255), (tx, ty), 4)  # точка клика
+
+    # Выбирает самолёт кликом по табличке или по спрайту. True, если клик попал в борт.
     def __select_airplane(self, mouse_x, mouse_y):
         # Выбор таблички самолета
         for i in range(0, len(self.button_airplane)):
             if self.button_airplane[i].airplane.nash == False:
                 continue
             if self.button_airplane[i].click(mouse_x, mouse_y):
-                if self.click_airplane is not None:
-                    self.click_airplane.click_camolet=False
-
-                self.click_airplane = self.button_airplane[i].airplane
-                self.click_airplane.click_camolet=True
-                return
+                self.__vzyat_samolet(self.button_airplane[i].airplane)
+                return True
 
         # выбор самолета
         for i in range(0, len(self.airplanes)):
             if self.airplanes[i].click(mouse_x, mouse_y):
-                if self.click_airplane is not None:
-                    self.click_airplane.click_camolet=False
-                self.click_airplane = self.airplanes[i]
-                self.click_airplane.click_camolet = True
+                self.__vzyat_samolet(self.airplanes[i])
+                return True
+        return False
 
 
     # Начинает раунд: грузит карту из JSON.
     def init_new_game(self, level):
         self.visota_input = False
         self.visota_text = ""
+        self.risuet_marshrut = False
+        self.chernovik = []
         self.__new_game_from_file(level)
 
         #self.__init_airplanes()

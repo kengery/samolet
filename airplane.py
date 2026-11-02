@@ -12,10 +12,15 @@ TURB_PADENIE = 9  # метры в секунду, пока турбулентн�
 SKOROST_KMCH = 200  # км/ч на 1 пиксель за кадр; speed 2 → 400 км/ч
 VEKTOR_KADROV = 100  # длина линии курса, кадры (~3 с)
 AVTOPILOT_GRAD = 0.5  # максимальный доворот к аэропорту, градусы за кадр
+MARSHRUT_GRAD = 5  # доворот по точкам «Изменить маршрут», градусы за кадр
 TURB_NACHALO = 1.5  # секунды сноса в сторону зоны
 TURB_OBRATNO = TURB_NACHALO / 2  # секунды сноса в обратную сторону
 ROMB_R = 9  # половина диагонали ромба, пиксели
 CVET_CHUZHOY = (40, 100, 105)  # тусклая бирюза чужого борта
+UGOL_BEZ_DUGI = 4  # градусы: меньший стык остаётся без дуги
+SHAG_DUGI = 6  # шаг точек дуги на экране, градусы
+POROG_TOCHKI = 14  # пиксели: точка без дуги уже пройдена
+
 
 @dataclass
 # Самолёт: полёт, топливо, команды курса и скорости.
@@ -100,6 +105,7 @@ class airplane:
         self.cherez_granicu = False  # ушёл через свой проём
         self.cel_x = None  # X цели автопилота: аэропорт или середина проёма
         self.cel_y = None  # Y цели автопилота
+        self.tochki_marshruta = []  # точки маршрута по порядку; пусто — сразу к цели
         self.granica_storona = None  # сторона проёма: verh, niz, levo, pravo
         self.granica_a = None  # начало отрезка проёма вдоль рамки
         self.granica_b = None  # конец отрезка проёма вдоль рамки
@@ -150,17 +156,28 @@ class airplane:
         tochki = [(cx, cy - ROMB_R), (cx + ROMB_R, cy), (cx, cy + ROMB_R), (cx - ROMB_R, cy)]  # вершины ромба
         pygame.draw.polygon(self.display, cvet, tochki)  # залитый ромб самолёта
 
+    # Курс к точке (tx, ty) не больше чем на predel градусов за кадр.
+    def __dovorot_k(self, tx, ty, cx, cy, angle, predel=AVTOPILOT_GRAD):
+        cel = math.degrees(math.atan2(cy - ty, tx - cx))  # курс на точку
+        raznica = self.__raznica_kursa(angle, cel)  # кратчайший доворот, градусы
+        if raznica > predel:
+            raznica = predel
+        elif raznica < -predel:
+            raznica = -predel
+        return angle + raznica
+
     # Курс после доворота к цели не больше чем на AVTOPILOT_GRAD. Без цели угол тот же.
     def __dovorot(self, cx, cy, angle):
         if self.cel_x is None:
             return angle
-        cel = math.degrees(math.atan2(cy - self.cel_y, self.cel_x - cx))  # курс на аэропорт или середину проёма
-        raznica = (cel - angle + 180) % 360 - 180  # кратчайший доворот, градусы
-        if raznica > AVTOPILOT_GRAD:
-            raznica = AVTOPILOT_GRAD
-        elif raznica < -AVTOPILOT_GRAD:
-            raznica = -AVTOPILOT_GRAD
-        return angle + raznica
+        return self.__dovorot_k(self.cel_x, self.cel_y, cx, cy, angle)
+
+    # True, если точка уже позади носа.
+    def __szadi(self, cx, cy, px, py):
+        rad = math.radians(self.angle)  # курс в радианах
+        vx = math.cos(rad)  # вперёд по X на экране
+        vy = -math.sin(rad)  # вперёд по Y на экране
+        return vx * (px - cx) + vy * (py - cy) < 0
 
     # True, если точка внутри картинки аэропорта.
     def __v_kartinke(self, x, y):
@@ -220,6 +237,193 @@ class airplane:
                     t_hit = t
         return (x1 + t_hit * dx, y1 + t_hit * dy)
 
+    # Радиус дуги: на нём борт как раз доворачивает на MARSHRUT_GRAD за кадр.
+    def __radius_povorota(self):
+        v = self.speed  # пиксели за кадр, не меньше чуть-чуть, чтобы радиус не раздувался
+        if v < 0.05:
+            v = 0.05
+        return v / math.radians(MARSHRUT_GRAD)  # градусы поворота в радианы, из них радиус дуги
+
+    # Кратчайший доворот от курса ot к курсу k, градусы.
+    def __raznica_kursa(self, ot, k):
+        return (k - ot + 180) % 360 - 180
+
+    # Курс из точки 1 в точку 2, градусы как у самолёта.
+    def __kurs_na(self, x1, y1, x2, y2):
+        return math.degrees(math.atan2(y1 - y2, x2 - x1))  # atan2 даёт угол в радианах, degrees переводит в градусы
+
+    # Дуга вместо угла в B. None, если стык почти прямой или отрезок слишком короткий.
+    def __skruglenie_ugla(self, ax, ay, bx, by, cx, cy, radius, max_in, max_out):
+        vx = bx - ax  # входящий отрезок по X
+        vy = by - ay  # входящий отрезок по Y
+        wx = cx - bx  # исходящий отрезок по X
+        wy = cy - by  # исходящий отрезок по Y
+        lin = math.hypot(vx, vy)  # длина входящего отрезка
+        lout = math.hypot(wx, wy)  # длина исходящего отрезка
+        if lin < 1 or lout < 1 or max_in < 1 or max_out < 1:
+            return None
+        kin = self.__kurs_na(ax, ay, bx, by)  # курс до угла
+        kout = self.__kurs_na(bx, by, cx, cy)  # курс после угла
+        theta = self.__raznica_kursa(kin, kout)  # поворот на стыке, градусы
+        if abs(theta) < UGOL_BEZ_DUGI:
+            return None
+        half = math.radians(abs(theta) / 2)  # половина поворота в радианах
+        tan_half = math.tan(half)  # отступ дуги на единицу радиуса
+        if tan_half < 1e-4:
+            return None
+        d = radius * tan_half  # отступ от угла до начала дуги
+        if d > max_in:
+            d = max_in
+        if d > max_out:
+            d = max_out
+        if d > lin:
+            d = lin
+        if d > lout:
+            d = lout
+        if d < 1.5:
+            return None
+        r_use = d / tan_half  # радиус, который влез в оба отрезка
+        ux = vx / lin  # единичный вход по X
+        uy = vy / lin  # единичный вход по Y
+        ox = wx / lout  # единичный выход по X
+        oy = wy / lout  # единичный выход по Y
+        t1x = bx - ux * d  # начало дуги
+        t1y = by - uy * d
+        t2x = bx + ox * d  # конец дуги
+        t2y = by + oy * d
+        sign = 1 if theta > 0 else -1  # +1 влево, -1 вправо
+        rad = math.radians(kin)  # входной курс в радианах
+        nx = -math.sin(rad)  # левая нормаль по X
+        ny = -math.cos(rad)  # левая нормаль по Y
+        return {
+            "t1": (t1x, t1y),
+            "t2": (t2x, t2y),
+            "center": (t1x + sign * r_use * nx, t1y + sign * r_use * ny),
+            "r": r_use,
+            "kin": kin,
+            "kout": kout,
+            "sign": sign,
+            "d": d,
+        }
+
+    # Точки дуги от входного курса к выходному.
+    def __tochki_dugi(self, duga):
+        theta = self.__raznica_kursa(duga["kin"], duga["kout"])  # весь поворот дуги
+        n = max(2, int(abs(theta) / SHAG_DUGI))  # сколько отрезков в дуге
+        cx, cy = duga["center"]  # центр дуги
+        r = duga["r"]  # радиус дуги
+        sign = duga["sign"]  # сторона поворота
+        pts = []  # точки дуги
+        for i in range(0, n + 1):
+            beta = duga["kin"] + theta * (i / n)  # курс на этом месте дуги
+            rb = math.radians(beta)  # курс шага в радианах
+            nx = -math.sin(rb)  # левая нормаль шага по X
+            ny = -math.cos(rb)  # левая нормаль шага по Y
+            pts.append((cx - sign * r * nx, cy - sign * r * ny))
+        return pts
+
+    # Дуга на стыке points[i]. У последней точки дуга ведёт к goal, если s_celyu.
+    def __ugol_marshruta(self, points, i, goal, s_celyu):
+        ax, ay = points[i - 1]  # точка до угла
+        bx, by = points[i]  # сам угол
+        if i == len(points) - 1:
+            if s_celyu == False or goal is None:
+                return None
+            cx, cy = goal  # цель после последней точки
+            max_out = math.hypot(cx - bx, cy - by)  # отступ вдоль направления на цель
+        else:
+            cx, cy = points[i + 1]  # следующая точка
+            max_out = math.hypot(cx - bx, cy - by) / 2  # половина отрезка, чтобы дуги не сходились
+        din = math.hypot(bx - ax, by - ay)  # длина входящего отрезка
+        if i == 1:
+            max_in = din - 2  # почти весь первый отрезок от борта
+        else:
+            max_in = din / 2
+        if max_in < 0:
+            max_in = 0
+        return self.__skruglenie_ugla(ax, ay, bx, by, cx, cy, self.__radius_povorota(), max_in, max_out)
+
+    # Линия из прямых и дуг. Второй результат — (x, y, курс) хвоста к цели, либо None.
+    def liniya_skrugleniya(self, points, goal, s_celyu):
+        if len(points) < 2:
+            return list(points), None
+        if s_celyu == True:
+            posledniy = len(points) - 1  # последняя точка тоже скругляется к цели
+        else:
+            posledniy = len(points) - 2  # конец линии — курсор, его к цели не гнём
+        pts = [points[0]]  # линия с борта
+        hvost_ugol = None  # курс после последней дуги к цели
+        for i in range(1, posledniy + 1):
+            duga = self.__ugol_marshruta(points, i, goal, s_celyu)  # дуга этого стыка
+            if duga is None:
+                pts.append(points[i])
+                hvost_ugol = None
+            else:
+                pts.append(duga["t1"])
+                pts.extend(self.__tochki_dugi(duga)[1:])
+                hvost_ugol = duga["kout"]
+        if s_celyu == False:
+            kx, ky = points[-1]  # последняя точка черновика или курсор
+            if abs(pts[-1][0] - kx) > 0.5 or abs(pts[-1][1] - ky) > 0.5:
+                pts.append((kx, ky))
+            return pts, None
+        if goal is None:
+            return pts, None
+        gx, gy = goal  # центр цели
+        if hvost_ugol is None:
+            bx, by = points[-1]  # последняя точка без дуги
+            if math.hypot(gx - bx, gy - by) < 1:  # расстояние от точки до цели меньше пикселя
+                return pts, None
+            return pts, (bx, by, self.__kurs_na(bx, by, gx, gy))
+        t2x, t2y = pts[-1]  # конец последней дуги
+        return pts, (t2x, t2y, hvost_ugol)
+
+    # Точки обычной линии курса от (cx, cy) с заданным курсом. Не длиннее VEKTOR_KADROV. Снос не входит.
+    def __tochki_kursa(self, cx, cy, angle, avto):
+        tochki = [(cx, cy)]  # точки линии
+        if self.na_v_hod == True:
+            risovat = self.__v_pole(cx, cy)  # линия к проёму, пока центр в поле
+        else:
+            risovat = self.__v_kartinke(cx, cy) == False  # линия к аэропорту, пока центр вне картинки
+        if risovat == False:
+            return tochki
+        for _ in range(VEKTOR_KADROV):
+            if avto == True:
+                angle = self.__dovorot(cx, cy, angle)
+            rad = math.radians(angle)  # курс шага в радианах
+            nx = cx + self.speed * math.cos(rad)  # следующий X
+            ny = cy - self.speed * math.sin(rad)  # следующий Y
+            if self.na_v_hod == True:
+                if self.__v_pole(nx, ny) == False:
+                    tochki.append(self.__vhod_v_pole(cx, cy, nx, ny))
+                    break
+            elif self.__v_kartinke(nx, ny) == True:
+                tochki.append(self.__vhod_v_aeroport(cx, cy, nx, ny))
+                break
+            cx = nx
+            cy = ny
+            tochki.append((cx, cy))
+        return tochki
+
+    # Прямые и дуги маршрута целиком, затем короткий хвост к аэропорту или проёму.
+    def __render_marshrut(self, cx, cy, cvet):
+        pts = [(cx, cy)]  # борт и оставшиеся точки
+        for t in self.tochki_marshruta:
+            pts.append(t)
+        goal = None  # цель хвоста
+        if self.cel_x is not None:
+            goal = (self.cel_x, self.cel_y)
+        liniya, hvost = self.liniya_skrugleniya(pts, goal, goal is not None)  # скруглённая линия и хвост
+        if hvost is not None:
+            hx, hy, hugol = hvost  # начало и курс обычного хвоста
+            hvost_tochki = self.__tochki_kursa(hx, hy, hugol, True)  # не длиннее 100 кадров
+            if len(hvost_tochki) > 1:
+                liniya.extend(hvost_tochki[1:])
+        if len(liniya) > 1:
+            pygame.draw.lines(self.display, cvet, False, liniya, 2)  # маршрут толщиной 2
+        for tx, ty in self.tochki_marshruta:
+            pygame.draw.circle(self.display, cvet, (tx, ty), 4)  # точка клика
+
     # Линия не длиннее VEKTOR_KADROV кадров. На краю аэропорта или на рамке проёма обрывается. Снос не входит.
     def __render_vektor(self):
         if self.nash == False:
@@ -230,30 +434,11 @@ class airplane:
             cvet = (0, 120, 130)  # остальные тусклее
         cx = self.x + self.dx / 2  # центр самолёта по X
         cy = self.y + self.dy / 2  # центр самолёта по Y
-        angle = self.angle  # курс на шаге линии
+        if len(self.tochki_marshruta) > 0:
+            self.__render_marshrut(cx, cy, cvet)
+            return
         avto = self.avtopilot == True and isinstance(self.command, command_airplane_angle) == False  # дуга к цели
-        tochki = [(cx, cy)]  # точки линии
-        if self.na_v_hod == True:
-            risovat = self.__v_pole(cx, cy)  # линия к проёму, пока центр в поле
-        else:
-            risovat = self.__v_kartinke(cx, cy) == False  # линия к аэропорту, пока центр вне картинки
-        if risovat == True:
-            for _ in range(VEKTOR_KADROV):
-                if avto == True:
-                    angle = self.__dovorot(cx, cy, angle)
-                rad = math.radians(angle)  # курс шага в радианах
-                nx = cx + self.speed * math.cos(rad)  # следующий X
-                ny = cy - self.speed * math.sin(rad)  # следующий Y
-                if self.na_v_hod == True:
-                    if self.__v_pole(nx, ny) == False:
-                        tochki.append(self.__vhod_v_pole(cx, cy, nx, ny))
-                        break
-                elif self.__v_kartinke(nx, ny) == True:
-                    tochki.append(self.__vhod_v_aeroport(cx, cy, nx, ny))
-                    break
-                cx = nx
-                cy = ny
-                tochki.append((cx, cy))
+        tochki = self.__tochki_kursa(cx, cy, self.angle, avto)  # обычная короткая линия
         if len(tochki) > 1:
             pygame.draw.lines(self.display, cvet, False, tochki, 2)  # линия курса толщиной 2
 
@@ -347,11 +532,50 @@ class airplane:
             self.cel_x = pole_x2
             self.cel_y = seredina
 
-    # Включает автопилот и снимает незаконченный поворот.
+    # Включает автопилот и снимает незаконченный поворот. Точки маршрута не стирает.
     def na_marshrut(self):
         self.avtopilot = True
         if isinstance(self.command, command_airplane_angle):
             self.command = None
+
+    # Записывает точки маршрута и включает автопилот. Цель аэропорта не затирает.
+    def zadat_tochki(self, tochki):
+        self.tochki_marshruta = []  # новый маршрут вместо старого
+        for x, y in tochki:
+            self.tochki_marshruta.append((x, y))
+        self.na_marshrut()
+
+    # Ведёт курс по прямой до дуги и по дуге дальше. True, если точки маршрута ещё есть.
+    def __idt_po_tochkam(self, cx, cy):
+        if len(self.tochki_marshruta) == 0:
+            return False
+        bx, by = self.tochki_marshruta[0]  # ближайшая точка
+        dist_b = math.hypot(bx - cx, by - cy)  # расстояние до неё
+        goal = None  # конечная цель после точек
+        if self.cel_x is not None:
+            goal = (self.cel_x, self.cel_y)
+        pts = [(cx, cy)] + self.tochki_marshruta  # борт и точки
+        duga = self.__ugol_marshruta(pts, 1, goal, goal is not None)  # дуга ближайшего стыка
+        if duga is None:
+            self.angle = self.__dovorot_k(bx, by, cx, cy, self.angle, MARSHRUT_GRAD)
+            if dist_b <= POROG_TOCHKI or (self.__szadi(cx, cy, bx, by) and dist_b < 40):
+                self.tochki_marshruta.pop(0)
+            return True
+        t1x, t1y = duga["t1"]  # начало дуги
+        if dist_b - duga["d"] > 2 and math.hypot(t1x - cx, t1y - cy) > 3:  # до начала дуги ещё больше 3 пикселей
+            self.angle = self.__dovorot_k(t1x, t1y, cx, cy, self.angle, MARSHRUT_GRAD)
+            return True
+        err = self.__raznica_kursa(self.angle, duga["kout"])  # сколько ещё до курса после дуги
+        if abs(err) <= MARSHRUT_GRAD:
+            self.angle = duga["kout"]
+            self.tochki_marshruta.pop(0)
+            return True
+        if err > MARSHRUT_GRAD:
+            err = MARSHRUT_GRAD
+        elif err < -MARSHRUT_GRAD:
+            err = -MARSHRUT_GRAD
+        self.angle = self.angle + err
+        return True
 
     # Задаёт множитель расхода топлива (1 обычный, 2 после выравнивания в зоне).
     def ymn_koef_ball(self,koef_ball):
@@ -479,7 +703,8 @@ class airplane:
         if self.avtopilot == True and isinstance(self.command, command_airplane_angle) == False:
             cx = self.x + self.dx / 2  # центр самолёта по X
             cy = self.y + self.dy / 2  # центр самолёта по Y
-            self.angle = self.__dovorot(cx, cy, self.angle)
+            if self.__idt_po_tochkam(cx, cy) == False:
+                self.angle = self.__dovorot(cx, cy, self.angle)
             self.camolet.set_angle(self.angle)
 
         angle_rad = math.radians(self.angle)  # курс в радианах для cos/sin
@@ -489,8 +714,8 @@ class airplane:
         dy = self.speed * math.sin(angle_rad)  # сдвиг по Y (на экране вниз со знаком минус)
         if sdvig != 0:
             snos_rad = math.radians(self.turb_napravlenie)  # направление сноса в радианах
-            dx = dx + self.turb_skorost * sdvig * math.cos(snos_rad)
-            dy = dy + self.turb_skorost * sdvig * math.sin(snos_rad)
+            dx = dx + self.turb_skorost * sdvig * math.cos(snos_rad)  # снос по X
+            dy = dy + self.turb_skorost * sdvig * math.sin(snos_rad)  # снос по Y
 
         # Новые координаты
         self.x = self.x + dx
@@ -500,7 +725,7 @@ class airplane:
         self.points.append(n)
         #print(f"a={self.angle}")
 
-        self.benzin_rashod = (math.fabs(self.speed - self.scorOpt) + self.rashodbenz)*self.__koef_ball
+        self.benzin_rashod = (math.fabs(self.speed - self.scorOpt) + self.rashodbenz)*self.__koef_ball  # модуль отклонения скорости от оптимальной
         self.benzin=self.benzin-self.benzin_rashod
         self.ball_benz=self.ball_benz+self.benzin_rashod
 
