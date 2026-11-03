@@ -18,6 +18,8 @@ TURB_OBRATNO = TURB_NACHALO / 2  # секунды сноса в обратную
 ROMB_R = 9  # половина диагонали ромба, пиксели
 CVET_CHUZHOY = (40, 100, 105)  # тусклая бирюза чужого борта
 UGOL_BEZ_DUGI = 4  # градусы: меньший стык остаётся без дуги
+RAZVOROT_GRAD = 150  # стык круче этого: если дуга не влезает, разворот у точки
+RAZVOROT_SHAG = 30  # градусы за кадр у этого разворота, чтобы борт почти дошёл до точки
 SHAG_DUGI = 6  # шаг точек дуги на экране, градусы
 POROG_TOCHKI = 14  # пиксели: точка без дуги уже пройдена
 
@@ -106,6 +108,10 @@ class airplane:
         self.cel_x = None  # X цели автопилота: аэропорт или середина проёма
         self.cel_y = None  # Y цели автопилота
         self.tochki_marshruta = []  # точки маршрута по порядку; пусто — сразу к цели
+        self.razvorot_kout = None  # курс выхода из разворота около 180°, пока полукруг не закончен
+        self.razvorot_znak = 0  # +1 влево, -1 вправо, пока идёт этот полукруг
+        self.razvorot_znak_zhdet = 0  # сторона разворота, замеченная на подлёте к точке
+        self.razvorot_kout_zhdet = None  # курс выхода, пока борт ещё летит к этой точке
         self.granica_storona = None  # сторона проёма: verh, niz, levo, pravo
         self.granica_a = None  # начало отрезка проёма вдоль рамки
         self.granica_b = None  # конец отрезка проёма вдоль рамки
@@ -260,12 +266,48 @@ class airplane:
         wy = cy - by  # исходящий отрезок по Y
         lin = math.hypot(vx, vy)  # длина входящего отрезка
         lout = math.hypot(wx, wy)  # длина исходящего отрезка
-        if lin < 1 or lout < 1 or max_in < 1 or max_out < 1:
+        if lout < 1 or max_out < 1:
             return None
-        kin = self.__kurs_na(ax, ay, bx, by)  # курс до угла
+        if lin >= 1:
+            kin = self.__kurs_na(ax, ay, bx, by)  # курс до угла
+        else:
+            kin = self.angle  # уже на точке, входной курс — текущий нос
         kout = self.__kurs_na(bx, by, cx, cy)  # курс после угла
         theta = self.__raznica_kursa(kin, kout)  # поворот на стыке, градусы
         if abs(theta) < UGOL_BEZ_DUGI:
+            return None
+        if abs(theta) >= RAZVOROT_GRAD - 1:  # градус запаса: за кадр борт сходит с ровных 180°
+            half_raz = math.radians(abs(theta) / 2)  # половина разворота
+            if half_raz >= math.pi / 2 - 1e-4:
+                d_poln = None  # ровно 180°: отступ дуги бесконечный
+            else:
+                d_poln = radius * math.tan(half_raz)  # отступ дуги полного радиуса
+            if d_poln is None or d_poln > max_in or d_poln > max_out or d_poln > lin or d_poln > lout:
+                sign = 1 if theta > 0 else -1  # +1 влево, -1 вправо; ровно 180° — вправо
+                v = self.speed  # пиксели за кадр
+                if v < 0.05:
+                    v = 0.05
+                r_raz = v / math.radians(RAZVOROT_SHAG)  # короткий радиус, борт остаётся у точки
+                rad = math.radians(kin)  # входной курс в радианах
+                nx = -math.sin(rad)  # левая нормаль по X
+                ny = -math.cos(rad)  # левая нормаль по Y
+                sx = bx + sign * r_raz * nx  # центр короткого полукруга
+                sy = by + sign * r_raz * ny
+                rb = math.radians(kout)  # выходной курс в радианах
+                nx2 = -math.sin(rb)  # левая нормаль выхода по X
+                ny2 = -math.cos(rb)  # левая нормаль выхода по Y
+                return {
+                    "t1": (bx, by),
+                    "t2": (sx - sign * r_raz * nx2, sy - sign * r_raz * ny2),
+                    "center": (sx, sy),
+                    "r": r_raz,
+                    "kin": kin,
+                    "kout": kout,
+                    "sign": sign,
+                    "d": 0,
+                    "razvorot": True,
+                }
+        if lin < 1 or max_in < 1:
             return None
         half = math.radians(abs(theta) / 2)  # половина поворота в радианах
         tan_half = math.tan(half)  # отступ дуги на единицу радиуса
@@ -304,6 +346,7 @@ class airplane:
             "kout": kout,
             "sign": sign,
             "d": d,
+            "razvorot": False,
         }
 
     # Точки дуги от входного курса к выходному.
@@ -476,6 +519,10 @@ class airplane:
     def add_angle(self,angle):
         if self.command is None:
             self.avtopilot = False
+            self.razvorot_kout = None
+            self.razvorot_znak = 0
+            self.razvorot_znak_zhdet = 0
+            self.razvorot_kout_zhdet = None
             self.command_last_time=time.time()
             if angle>0:
                 self.command=command_airplane_angle(angle, True)  # поворот влево
@@ -541,14 +588,46 @@ class airplane:
     # Записывает точки маршрута и включает автопилот. Цель аэропорта не затирает.
     def zadat_tochki(self, tochki):
         self.tochki_marshruta = []  # новый маршрут вместо старого
+        self.razvorot_kout = None
+        self.razvorot_znak = 0
+        self.razvorot_znak_zhdet = 0
+        self.razvorot_kout_zhdet = None
         for x, y in tochki:
             self.tochki_marshruta.append((x, y))
         self.na_marshrut()
 
+    # Один шаг разворота у точки: быстрее обычной дуги, чтобы почти дойти и потом лететь дальше.
+    def __shag_razvorota(self):
+        err = self.__raznica_kursa(self.angle, self.razvorot_kout)  # сколько ещё до курса выхода
+        if abs(err) <= RAZVOROT_SHAG:
+            self.angle = self.razvorot_kout
+            self.tochki_marshruta.pop(0)
+            self.razvorot_kout = None
+            self.razvorot_znak = 0
+            self.razvorot_znak_zhdet = 0
+            self.razvorot_kout_zhdet = None
+            return True
+        if abs(err) > 90:
+            shag = self.razvorot_znak * RAZVOROT_SHAG  # шаг в сторону стыка, градусы
+        elif err > RAZVOROT_SHAG:
+            shag = RAZVOROT_SHAG
+        elif err < -RAZVOROT_SHAG:
+            shag = -RAZVOROT_SHAG
+        else:
+            shag = err
+        self.angle = self.angle + shag
+        return True
+
     # Ведёт курс по прямой до дуги и по дуге дальше. True, если точки маршрута ещё есть.
     def __idt_po_tochkam(self, cx, cy):
         if len(self.tochki_marshruta) == 0:
+            self.razvorot_kout = None
+            self.razvorot_znak = 0
+            self.razvorot_znak_zhdet = 0
+            self.razvorot_kout_zhdet = None
             return False
+        if self.razvorot_kout is not None:
+            return self.__shag_razvorota()
         bx, by = self.tochki_marshruta[0]  # ближайшая точка
         dist_b = math.hypot(bx - cx, by - cy)  # расстояние до неё
         goal = None  # конечная цель после точек
@@ -556,6 +635,18 @@ class airplane:
             goal = (self.cel_x, self.cel_y)
         pts = [(cx, cy)] + self.tochki_marshruta  # борт и точки
         duga = self.__ugol_marshruta(pts, 1, goal, goal is not None)  # дуга ближайшего стыка
+        if duga is not None and duga["razvorot"] == True and self.razvorot_kout_zhdet is None:
+            self.razvorot_kout_zhdet = duga["kout"]
+            self.razvorot_znak_zhdet = duga["sign"]
+        if self.razvorot_kout_zhdet is not None:
+            if dist_b > 3:  # сначала почти до точки, и только потом к следующей
+                self.angle = self.__dovorot_k(bx, by, cx, cy, self.angle, MARSHRUT_GRAD)
+                return True
+            self.razvorot_kout = self.razvorot_kout_zhdet
+            self.razvorot_znak = self.razvorot_znak_zhdet
+            self.razvorot_kout_zhdet = None
+            self.razvorot_znak_zhdet = 0
+            return self.__shag_razvorota()
         if duga is None:
             self.angle = self.__dovorot_k(bx, by, cx, cy, self.angle, MARSHRUT_GRAD)
             if dist_b <= POROG_TOCHKI or (self.__szadi(cx, cy, bx, by) and dist_b < 40):
