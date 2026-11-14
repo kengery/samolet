@@ -1,0 +1,77 @@
+{
+  "rezhim": "real",
+  "zadach": 20,
+  "pole": { "x": 360, "y": 190, "x2": 1680, "y2": 860 },
+  "airplanes": [
+    {
+      "x": 480,
+      "y": 560,
+      "dx": 32.3,
+      "dy": 32.3,
+      "name": "Рейс1",
+      "file": "image\\camolet2.png",
+      "speed": 2.0,
+      "speed_min": 0.5,
+      "speed_max": 4,
+      "angle": 15,
+      "benzin": 1500,
+      "visota_airplane": 610,
+      "visota_min": 305,
+      "visota_max": 3048
+    },
+    {
+      "x": 1280,
+      "y": 280,
+      "dx": 32.3,
+      "dy": 32.3,
+      "name": "Рейс2",
+      "file": "image\\camolet2.png",
+      "speed": 1.85,
+      "speed_min": 0.5,
+      "speed_max": 4,
+      "angle": 200,
+      "benzin": 1500,
+      "visota_airplane": 1830,
+      "visota_min": 305,
+      "visota_max": 3048
+    }
+  ],
+  "tyrbylentnosts": [
+    {
+      "x": 560.0,
+      "y": 680.0,
+      "dx": 221.0,
+      "dy": 221.0,
+      "file": "image\\Tyrbylent-Photoroom.png"
+    },
+    {
+      "x": 1020.0,
+      "y": 380.0,
+      "dx": 221.0,
+      "dy": 221.0,
+      "file": "image\\Tyrbylent-Photoroom.png"
+    },
+    {
+      "x": 1420.0,
+      "y": 640.0,
+      "dx": 221.0,
+      "dy": 221.0,
+      "file": "image\\Tyrbylent-Photoroom.png"
+    }
+  ],
+  "zona": [
+    {
+      "point": [[648, 352], [812, 338], [798, 492], [636, 478]],
+      "color": [74, 12, 22]
+    },
+    {
+      "point": [[1188, 468], [1352, 454], [1338, 608], [1174, 594]],
+      "color": [74, 12, 22]
+    }
+  ],
+  "finish_x": 900.0,
+  "finish_y": 700.0,
+  "finish_rx": 57.0,
+  "finish_ry": 60.3,
+  "v_hody": []
+}

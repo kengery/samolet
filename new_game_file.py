@@ -27,7 +27,7 @@ class new_game_file:
     finish_ry: int  # половина высоты картинки аэропорта
     v_hody: list  # проёмы на рамке
     # Сохраняет состав карты в поля объекта.
-    def __init__(self, airplanes :list[airplane], tyrbylentnosts :list[Tyrbylentnost], zona: list[Zona], finish_x :int, finish_y : int, finish_rx :int, finish_ry :int, v_hody=None ):
+    def __init__(self, airplanes :list[airplane], tyrbylentnosts :list[Tyrbylentnost], zona: list[Zona], finish_x :int, finish_y : int, finish_rx :int, finish_ry :int, v_hody=None, rezhim="", zadach=0, pole=None ):
         self.airplanes=airplanes  # самолёты
         self.tyrbylentnosts=tyrbylentnosts  # турбулентности
         self.zona=zona  # запретные зоны
@@ -37,6 +37,9 @@ class new_game_file:
         self.finish_rx=finish_rx  # половина ширины аэропорта
         self.finish_ry=finish_ry  # половина высоты аэропорта
         self.v_hody = [] if v_hody is None else v_hody  # проёмы на рамке
+        self.rezhim = rezhim  # "" обычная карта, "real" — пока не закрыты задания
+        self.zadach = zadach  # сколько заданий закрыть, 0 на обычной карте
+        self.pole = pole  # прямоугольник поля или None — поле как на картах 1–4
 
     # Собирает поля карты в JSON-строку.
     def to_json(self, indent: int = 2, ensure_ascii: bool = False) -> str:
@@ -96,5 +99,8 @@ class new_game_file:
             finish_y=data['finish_y'],
             finish_rx=data['finish_rx'],
             finish_ry=data['finish_ry'],
-            v_hody=v_hody
+            v_hody=v_hody,
+            rezhim=data.get('rezhim', ''),
+            zadach=data.get('zadach', 0),
+            pole=data.get('pole')
         )

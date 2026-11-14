@@ -4,9 +4,9 @@ import Figyrs
 import GameScene
 from Image import Image
 
-# Выбор карты: четыре кнопки уровней и выход в меню.
+# Выбор карты: четыре кнопки уровней, реальный режим и выход в меню.
 class MenuLevel(Class.Scene):
-    # Создаёт фон, выход и кнопки карт 1–4.
+    # Создаёт фон, выход, кнопки карт 1–4 и кнопку реального режима.
     def __init__(self,gameEngine, display):
         super().__init__(gameEngine)
 
@@ -25,8 +25,9 @@ class MenuLevel(Class.Scene):
         self.button_Igra4 = Image(gameEngine.screenx * 0.65, gameEngine.screeny * 0.4, gameEngine.screenx * 0.17, gameEngine.screeny * 0.14,
                                  self.display,
                                  'image\\Button.png')  # карта 4
+        self.button_real = Image(gameEngine.screenx * 0.34, gameEngine.screeny * 0.60, gameEngine.screenx * 0.32, gameEngine.screeny * 0.12, self.display, 'image\\Button.png')  # реальный режим, по центру под картами
         # Уровни
-        self.levels = ["levels\\level1.json","levels\\level2.json","levels\\level3.json","levels\\level4.json"]  # пути к картам
+        self.levels = ["levels\\level1.json","levels\\level2.json","levels\\level3.json","levels\\level4.json","levels\\level_real.json"]  # пути к картам
 
     # Клик по карте запускает симуляцию, выход возвращает в меню.
     def handle_events(self, events):
@@ -46,6 +47,8 @@ class MenuLevel(Class.Scene):
                 if self.button_Igra4.click(mouse_x, mouse_y):
                     # Создаем игровую сцену и передаем выбранный уровень
                     self.gameEngine.change_scene("game", self.levels[3])
+                if self.button_real.click(mouse_x, mouse_y):
+                    self.gameEngine.change_scene("game", self.levels[4])
 
                 if self.button_exit.click(mouse_x,mouse_y):
                     self.gameEngine.change_scene("menu")
@@ -54,7 +57,7 @@ class MenuLevel(Class.Scene):
     def update(self):
         return
 
-    # Рисует фон, кнопки и подписи «Карта 1» … «Карта 4».
+    # Рисует фон, кнопки и подписи карт.
     def render(self):
         self.fon_planer.render()
         self.button_exit.render()
@@ -62,7 +65,9 @@ class MenuLevel(Class.Scene):
         self.button_Igra2.render()
         self.button_Igra3.render()
         self.button_Igra4.render()
+        self.button_real.render()
         Figyrs.print_text(self.display,self.gameEngine.screenx * 0.14, self.gameEngine.screeny * 0.47,80,(0,0,0),"Карта 1")
         Figyrs.print_text(self.display,self.gameEngine.screenx * 0.34, self.gameEngine.screeny * 0.47,80,(0,0,0),"Карта 2")
         Figyrs.print_text(self.display,self.gameEngine.screenx * 0.54, self.gameEngine.screeny * 0.47,80,(0,0,0),"Карта 3")
         Figyrs.print_text(self.display,self.gameEngine.screenx * 0.74, self.gameEngine.screeny * 0.47,80,(0,0,0),"Карта 4")
+        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, self.gameEngine.screeny * 0.66, 36, (0, 0, 0), "Реальный режим")

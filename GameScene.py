@@ -17,6 +17,12 @@ import time
 import MyMicrophone
 command_queue = queue.Queue()  # очередь для передачи голосовых команд
 VISOTA_SBLIGENIA_AIRPLANE = 305  # метры: столкновение, если разница высот меньше этого
+REAL_ZHIVYH = 5  # своих в воздухе на реальной карте
+REAL_CHUZHIH = 2  # чужих одновременно на экране
+REAL_PAUZA = 8  # секунды между появлениями
+REAL_LUCH = 400  # пиксели входа, которые не должны пересечь запретную зону
+REAL_OKNO = 160  # длина проёма вдоль рамки
+REAL_VYSOTY = (610, 1220, 1830, 2440, 3040)  # слои высоты новых рейсов, метры
 
 # Сцена симуляции: самолёты, зоны, кнопки, счёт и голос.
 class GameScene(Class.Scene):
@@ -59,6 +65,20 @@ class GameScene(Class.Scene):
         self.airplanes_poteryan=0  # сколько потеряны
         self.v_hody = []  # проёмы на рамке этой карты
         self.ball = 0  # сумма расхода и штрафов
+        self.rezhim = ""  # "" обычная карта, "real" — задания до лимита
+        self.zadach = 0  # сколько заданий закрыть на реальной карте
+        self.vypolneno = 0  # сели, ушли в проём или разбились
+        self.ball_proshlyh = 0  # баллы уже снятых с экрана бортов
+        self.stolk_vsego = 0  # разбитые за весь реальный раунд
+        self.finish_vsego = 0  # севшие в аэропорт за весь реальный раунд
+        self.granica_vsego = 0  # ушедшие в проём за весь реальный раунд
+        self.poteryan_vsego = 0  # потерянные за весь реальный раунд
+        self.real_konec = False  # задания уже закрыты, экран пуст
+        self.sled_nash = 0  # когда можно выпустить следующего своего
+        self.sled_chuzhoy = 0  # когда можно выпустить следующего чужого
+        self.nomer_reisa = 1  # номер следующего своего имени
+        self.nomer_borta = 1  # номер следующего чужого имени
+        self.nomer_okna = 1  # номер следующего проёма
         #self.points=[point.point(200, 300), point.point(700, 200), point.point(700, 800), point.point(500, 400)]
         self.n_zona=[]  # запретные многоугольники карты
         self.my_microphone = MyMicrophone.MyMicrophone()  # запись голоса по пробелу
@@ -147,10 +167,21 @@ class GameScene(Class.Scene):
         for i in range(0, len(self.airplanes)):
             if self.airplanes[i].nash == False:
                 if self.airplanes[i].ushel == False:
-                    if self.airplanes[i].x < self.pole_x or self.airplanes[i].x + self.airplanes[i].dx > self.pole_x2 or \
+                    if self.rezhim == "real":
+                        if self.__za_oknom(self.airplanes[i]):
+                            self.airplanes[i].ushel = True
+                    elif self.airplanes[i].x < self.pole_x or self.airplanes[i].x + self.airplanes[i].dx > self.pole_x2 or \
                             self.airplanes[i].y < self.pole_y or self.airplanes[i].y + self.airplanes[i].dy > self.pole_y2:
                         self.airplanes[i].ushel = True
                 continue
+            if self.rezhim == "real" and self.airplanes[i].voshel == False:
+                if self.__polnostyu_v_pole(self.airplanes[i]):
+                    self.airplanes[i].voshel = True
+                    if self.airplanes[i].okno_zhdet == True:
+                        self.__otkryt_svoy_vyhod(self.airplanes[i])
+                        self.airplanes[i].okno_zhdet = False
+                elif self.__za_oknom(self.airplanes[i]):
+                    self.airplanes[i].poteryan = True
             svoih = svoih + 1
             if self.airplanes[i].stolk == False and self.airplanes[i].finish == False and self.airplanes[
                 i].poteryan == False:
@@ -219,7 +250,9 @@ class GameScene(Class.Scene):
                 i].poteryan == True:
                 game_end = game_end + 1
 
-        if svoih > 0 and game_end == svoih:
+        if self.rezhim == "real":
+            self.__real_kadr()
+        elif svoih > 0 and game_end == svoih:
             self.end_game = True
 
     # Рисует тёмный фон окна и прямоугольник поля с рамкой.
@@ -235,18 +268,19 @@ class GameScene(Class.Scene):
         for v_hod in self.v_hody:
             self.__render_proem(v_hod)
 
-    # Закрашивает отрезок рамки цветом поля и ставит короткие засечки.
+    # Закрашивает отрезок рамки целиком цветом поля и ставит короткие засечки.
     def __render_proem(self, v_hod):
         a = v_hod.a  # начало проёма вдоль рамки
         b = v_hod.b  # конец проёма вдоль рамки
+        tol = 8  # толщина закраски, больше линии рамки в 2 пикселя
         if v_hod.storona == "verh" or v_hod.storona == "niz":
             y = self.pole_y if v_hod.storona == "verh" else self.pole_y2  # сторона рамки
-            pygame.draw.line(self.display, self.pole_cvet, (a, y), (b, y), 4)  # разрыв бирюзовой линии
+            pygame.draw.rect(self.display, self.pole_cvet, (a, y - tol / 2, b - a, tol))  # разрыв на всю толщину рамки
             pygame.draw.line(self.display, self.ramka_cvet, (a, y - 8), (a, y + 8), 2)  # засечка в начале
             pygame.draw.line(self.display, self.ramka_cvet, (b, y - 8), (b, y + 8), 2)  # засечка в конце
         else:
             x = self.pole_x if v_hod.storona == "levo" else self.pole_x2  # сторона рамки
-            pygame.draw.line(self.display, self.pole_cvet, (x, a), (x, b), 4)  # разрыв бирюзовой линии
+            pygame.draw.rect(self.display, self.pole_cvet, (x - tol / 2, a, tol, b - a))  # разрыв на всю толщину рамки
             pygame.draw.line(self.display, self.ramka_cvet, (x - 8, a), (x + 8, a), 2)  # засечка в начале
             pygame.draw.line(self.display, self.ramka_cvet, (x - 8, b), (x + 8, b), 2)  # засечка в конце
 
@@ -278,6 +312,8 @@ class GameScene(Class.Scene):
 
     # None, пока спрайт в поле. Иначе uspeh, letit или poteryan.
     def __ishod_ramki(self, plane):
+        if self.rezhim == "real" and plane.voshel == False:
+            return None
         if self.__za_polem(plane) == False:
             return None
         if plane.na_v_hod == False:
@@ -327,11 +363,12 @@ class GameScene(Class.Scene):
         Figyrs.print_text(self.display, self.button_izmenit.x + self.izmenit_w / 2, self.button_izmenit.y + self.gameEngine.screeny * 0.045, 22, (0, 0, 0), "Изменить маршрут")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.45, self.gameEngine.screeny * 0.12, 20, (0, 0, 0), f"Столкновение, если разница высот < {VISOTA_SBLIGENIA_AIRPLANE} м")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.45, self.gameEngine.screeny * 0.15, 20, (0, 0, 0), f"Ветер, если разница высот < {Tyrbylentnost.VISOTA_SLOIA} м")
+        if self.rezhim == "real":
+            Figyrs.print_text(self.display, 480, 130, 22, (220, 230, 235), f"Выполнено {self.vypolneno} из {self.zadach}")
         self.__render_visota_input()
 
         if self.end_game == True:
             self.__render_end_game()
-            self.end_game=False
 
     # Рисует турбулентность и запретные зоны.
     def __render_tyrbylentnost(self):
@@ -353,12 +390,24 @@ class GameScene(Class.Scene):
 
     # Показывает итоговое окно: баллы, столкнулись, потеряны, сели и ушли через границу.
     def __render_end_game(self):
+        if self.rezhim == "real":
+            stolk = self.stolk_vsego  # разбитые за раунд
+            poteryan = self.poteryan_vsego  # потерянные за раунд
+            finish = self.finish_vsego  # севшие в аэропорт
+            granica = self.granica_vsego  # ушедшие в проём
+        else:
+            stolk = self.airplanes_stolk
+            poteryan = self.airplanes_poteryan
+            finish = self.airplanes_finish
+            granica = self.airplanes_granica
         Figyrs.kvadr_poly(self.gameEngine.screenx*0.25,self.gameEngine.screeny*0.25,self.gameEngine.screenx*0.5,self.gameEngine.screeny*0.4,200,self.display)
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.505, self.gameEngine.screeny * 0.35,80, (0, 0, 0),f"Баллы = {int(self.ball)}")
-        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.4,self.gameEngine.screeny * 0.45,40,(0,0,0),f"Столкнулись = {self.airplanes_stolk}")
-        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, self.gameEngine.screeny * 0.5, 40, (0, 0, 0),f"Потерянны = {self.airplanes_poteryan}")
-        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.62, self.gameEngine.screeny * 0.45,40, (0, 0, 0),f"Прилетели в аэропорт = {self.airplanes_finish}")
-        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, self.gameEngine.screeny * 0.56, 40, (0, 0, 0), f"Ушли через границу = {self.airplanes_granica}")
+        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.4,self.gameEngine.screeny * 0.45,40,(0,0,0),f"Столкнулись = {stolk}")
+        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, self.gameEngine.screeny * 0.5, 40, (0, 0, 0),f"Потерянны = {poteryan}")
+        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.62, self.gameEngine.screeny * 0.45,40, (0, 0, 0),f"Прилетели в аэропорт = {finish}")
+        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, self.gameEngine.screeny * 0.56, 40, (0, 0, 0), f"Ушли через границу = {granica}")
+        if self.rezhim == "real":
+            Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, self.gameEngine.screeny * 0.62, 32, (0, 0, 0), f"Выполнено = {self.vypolneno}")
 
 
     # Рисует таблички слева: обычная, красная или зелёная.
@@ -404,7 +453,7 @@ class GameScene(Class.Scene):
 
     # Считает баллы: сожжённое топливо или полный бак за разбитых и потерянных.
     def __calc_balls(self):
-        self.ball=0
+        self.ball=self.ball_proshlyh
         for i in range(0, len(self.airplanes)):
             if self.airplanes[i].nash == False:
                 continue
@@ -527,6 +576,352 @@ class GameScene(Class.Scene):
         return False
 
 
+    # True, если спрайт целиком вышел за окно.
+    def __za_oknom(self, plane):
+        return plane.x + plane.dx < 0 or plane.x > self.gameEngine.screenx or plane.y + plane.dy < 0 or plane.y > self.gameEngine.screeny
+
+    # True, если спрайт целиком внутри прямоугольника поля.
+    def __polnostyu_v_pole(self, plane):
+        return plane.x >= self.pole_x and plane.x + plane.dx <= self.pole_x2 and plane.y >= self.pole_y and plane.y + plane.dy <= self.pole_y2
+
+    # Сторона рамки, к которой центр ближе всего. Ей открывается окно входа.
+    def __storona_u_ramki(self, plane):
+        cx = plane.x + plane.dx / 2  # центр по X
+        cy = plane.y + plane.dy / 2  # центр по Y
+        rasst = {  # расстояние центра до каждой стороны
+            "levo": cx - self.pole_x,
+            "pravo": self.pole_x2 - cx,
+            "verh": cy - self.pole_y,
+            "niz": self.pole_y2 - cy,
+        }
+        blizhe = "levo"  # сторона с наименьшим зазором
+        for storona in rasst:
+            if rasst[storona] < rasst[blizhe]:
+                blizhe = storona
+        return blizhe
+
+    # True, если отрезок пересекает уже открытый проём на той же стороне.
+    def __okno_zanayto(self, storona, a, b):
+        for okno in self.v_hody:
+            if okno.storona != storona:
+                continue
+            if a < okno.b and b > okno.a:
+                return True
+        return False
+
+    # Случайный проём на стороне. Старается не лечь на уже открытый.
+    def __sluchainoe_okno(self, storona):
+        if storona == "verh" or storona == "niz":
+            lo = self.pole_x + 24  # левый допустимый край отрезка
+            hi = self.pole_x2 - 24 - REAL_OKNO  # правый допустимый край начала
+        else:
+            lo = self.pole_y + 24
+            hi = self.pole_y2 - 24 - REAL_OKNO
+        if hi < lo:
+            hi = lo
+        a = lo  # начало отрезка
+        b = lo + REAL_OKNO  # конец отрезка
+        for _ in range(25):
+            a = random.uniform(lo, hi)
+            b = a + REAL_OKNO
+            if self.__okno_zanayto(storona, a, b) == False:
+                break
+        okno = new_game_file.v_hod(f"okno{self.nomer_okna}", storona, a, b)  # новый проём
+        self.nomer_okna = self.nomer_okna + 1
+        return okno
+
+    # Добавляет проём на сторону и оставляет его на рамке.
+    def __otkryt_okno(self, storona):
+        if storona not in ("verh", "niz", "levo", "pravo"):
+            return
+        self.v_hody.append(self.__sluchainoe_okno(storona))
+
+    # Двум стартовым рейсам выдаёт случайные проёмы, не аэропорт.
+    def __real_nachalo(self):
+        self.nomer_reisa = 1
+        for plane in self.airplanes:
+            if plane.nash == False:
+                continue
+            self.nomer_reisa = self.nomer_reisa + 1
+            plane.voshel = True
+            plane.okno_zhdet = False
+            storona = random.choice(("verh", "niz", "levo", "pravo"))  # сторона проёма этого рейса
+            okno = self.__sluchainoe_okno(storona)  # проём, уже открытый на старте
+            self.v_hody.append(okno)
+            plane.svoy_vyhod = okno
+            plane.set_v_hod(okno.storona, okno.a, okno.b, self.pole_x, self.pole_y, self.pole_x2, self.pole_y2)
+        self.sled_nash = time.time() + REAL_PAUZA
+        self.sled_chuzhoy = time.time() + REAL_PAUZA
+        self.real_konec = False
+
+    # Снимает борт с поля и с табличек. Если это был выбранный — выбор гаснет.
+    def __vykinut(self, i):
+        if self.click_airplane is self.airplanes[i]:
+            self.click_airplane = None
+            self.risuet_marshrut = False
+            self.chernovik = []
+        self.airplanes.pop(i)
+        self.button_airplane.pop(i)
+        self.button_finish.pop(i)
+        self.button_stolk.pop(i)
+
+    # Убирает с рамки проём этого борта: линия рамки снова сплошная.
+    def __zakryt_vyhod(self, plane):
+        okno = plane.svoy_vyhod  # проём, который рисовался только ему
+        if okno is None:
+            return
+        if okno in self.v_hody:
+            self.v_hody.remove(okno)
+        plane.svoy_vyhod = None
+
+    # Пишет исход в счёт заданий и в баллы снятых бортов.
+    def __zapisat_ishod(self, plane):
+        if plane.finish == True:
+            self.__zakryt_vyhod(plane)
+        if plane.stolk == True:
+            self.stolk_vsego = self.stolk_vsego + 1
+            self.vypolneno = self.vypolneno + 1
+            self.ball_proshlyh = self.ball_proshlyh + plane.izn_benzin
+            return
+        if plane.finish == True and plane.cherez_granicu == True:
+            self.granica_vsego = self.granica_vsego + 1
+            self.vypolneno = self.vypolneno + 1
+            self.ball_proshlyh = self.ball_proshlyh + plane.ball_benz
+            return
+        if plane.finish == True:
+            self.finish_vsego = self.finish_vsego + 1
+            self.vypolneno = self.vypolneno + 1
+            self.ball_proshlyh = self.ball_proshlyh + plane.ball_benz
+            return
+        if plane.poteryan == True:
+            self.poteryan_vsego = self.poteryan_vsego + 1
+            self.ball_proshlyh = self.ball_proshlyh + plane.izn_benzin
+
+    # Убирает своих с исходом и чужих, ушедших за окно. Таблички живых сдвигает вверх.
+    def __snyat_s_ishodom(self):
+        i = len(self.airplanes) - 1
+        while i >= 0:
+            plane = self.airplanes[i]  # борт, который, может быть, уже закончил
+            if plane.nash == False:
+                if plane.ushel == True:
+                    self.__vykinut(i)
+                i = i - 1
+                continue
+            if plane.stolk == True or plane.finish == True or plane.poteryan == True:
+                self.__zapisat_ishod(plane)
+                self.__vykinut(i)
+            i = i - 1
+        self.__uplotnit_tablichki()
+
+    # Ставит таблички живых своих подряд сверху, без пустых мест.
+    def __uplotnit_tablichki(self):
+        n = 0  # сколько живых своих уже разложено
+        for i in range(0, len(self.airplanes)):
+            if self.airplanes[i].nash == False:
+                continue
+            y = 12 + n * 110  # верх таблички
+            for knopka in (self.button_airplane[i], self.button_finish[i], self.button_stolk[i]):
+                knopka.y = y
+                knopka.image.set_x_y(knopka.x, y)
+            n = n + 1
+
+    # Снимает всех, кто ещё на экране. У летящих своих в баллы идёт уже сожжённое топливо.
+    def __ubrat_vseh(self):
+        for plane in self.airplanes:
+            if plane.nash == True and plane.stolk == False and plane.finish == False and plane.poteryan == False:
+                self.ball_proshlyh = self.ball_proshlyh + plane.ball_benz
+        self.airplanes = []
+        self.button_airplane = []
+        self.button_finish = []
+        self.button_stolk = []
+        self.click_airplane = None
+        self.risuet_marshrut = False
+        self.chernovik = []
+
+    # Сколько своих ещё летит.
+    def __zhivyh(self):
+        n = 0
+        for plane in self.airplanes:
+            if plane.nash == True and plane.stolk == False and plane.finish == False and plane.poteryan == False:
+                n = n + 1
+        return n
+
+    # Сколько чужих ещё на экране.
+    def __chuzhih(self):
+        n = 0
+        for plane in self.airplanes:
+            if plane.nash == False and plane.ushel == False:
+                n = n + 1
+        return n
+
+    # Высота из свободного слоя: разница с летящими своими не меньше 305 м.
+    def __svobodnaya_visota(self):
+        zanyato = []  # высоты тех, кто ещё летит
+        for plane in self.airplanes:
+            if plane.nash == True and plane.stolk == False and plane.finish == False and plane.poteryan == False:
+                zanyato.append(plane.visota_airplane)
+        svobodnye = []  # слои, которые ещё не заняты
+        for visota in REAL_VYSOTY:
+            godna = True  # слой далеко от всех летящих
+            for est in zanyato:
+                if abs(visota - est) < VISOTA_SBLIGENIA_AIRPLANE:
+                    godna = False
+            if godna == True:
+                svobodnye.append(visota)
+        if len(svobodnye) == 0:
+            return None
+        return random.choice(svobodnye)
+
+    # True, если прямая внутрь на REAL_LUCH пикселей задевает запретную зону или рядом уже есть борт.
+    def __vhoda_meshaet(self, x, y, angle):
+        cx = x + 16.15  # центр спрайта по X
+        cy = y + 16.15  # центр спрайта по Y
+        rad = math.radians(angle)  # курс входа
+        shag = 16  # шаг проверки луча, пиксели
+        n = int(REAL_LUCH / shag)
+        for k in range(0, n + 1):
+            px = cx + math.cos(rad) * shag * k  # точка луча по X
+            py = cy - math.sin(rad) * shag * k  # точка луча по Y, ось экрана вниз
+            for zona in self.n_zona:
+                if zona.select(px, py) == True:
+                    return True
+        for plane in self.airplanes:
+            if plane.ushel == True:
+                continue
+            px = plane.x + plane.dx / 2
+            py = plane.y + plane.dy / 2
+            if math.hypot(px - cx, py - cy) < 80:
+                return True
+        return False
+
+    # Число от a до b. Если отрезок вырожден, возвращает a.
+    def __mezhdu(self, a, b):
+        if b <= a:
+            return a
+        return random.uniform(a, b)
+
+    # Случайная точка за рамкой на этой стороне и курс внутрь поля.
+    def __tochka_vhoda(self, storona):
+        dx = 32.3  # ширина спрайта
+        dy = 32.3  # высота спрайта
+        if storona == "levo":
+            x = self.__mezhdu(246, self.pole_x - dx - 8)
+            y = self.__mezhdu(self.pole_y + 8, self.pole_y2 - dy - 8)
+            return x, y, 0
+        if storona == "pravo":
+            x = self.__mezhdu(self.pole_x2 + 8, self.gameEngine.screenx - dx - 4)
+            y = self.__mezhdu(self.pole_y + 8, self.pole_y2 - dy - 8)
+            return x, y, 180
+        if storona == "verh":
+            x = self.__mezhdu(1180, self.pole_x2 - dx - 8)
+            y = self.__mezhdu(104, self.pole_y - dy - 6)
+            return x, y, 270
+        x = self.__mezhdu(self.pole_x + 8, self.pole_x2 - dx - 8)
+        y = self.__mezhdu(self.pole_y2 + 8, self.gameEngine.screeny - dy - 4)
+        return x, y, 90
+
+    # Ищет сторону и точку, откуда борт входит мимо запретных зон. None, если места нет.
+    def __mesto_vhoda(self):
+        storony = ["verh", "niz", "levo", "pravo"]  # все четыре стороны рамки
+        random.shuffle(storony)
+        for storona in storony:
+            for _ in range(12):
+                x, y, angle = self.__tochka_vhoda(storona)  # кандидат за рамкой
+                if self.__vhoda_meshaet(x, y, angle) == True:
+                    continue
+                return storona, x, y, angle
+        return None
+
+    # Цель нового своего: аэропорт или свой новый проём, не общий с другим бортом.
+    def __naznachit_cel(self, plane):
+        storony = []  # стороны, кроме той, откуда он заходит
+        for storona in ("verh", "niz", "levo", "pravo"):
+            if storona != plane.storona_vhoda:
+                storony.append(storona)
+        if len(storony) == 0:
+            storony = ["verh", "niz", "levo", "pravo"]
+        okno = self.__sluchainoe_okno(random.choice(storony))  # проём только этого борта
+        self.v_hody.append(okno)
+        plane.svoy_vyhod = okno
+        if random.random() < 0.5:
+            plane.na_v_hod = False
+            plane.v_hod = None
+            plane.cel_x = self.circle_x
+            plane.cel_y = self.circle_y
+            return
+        plane.set_v_hod(okno.storona, okno.a, okno.b, self.pole_x, self.pole_y, self.pole_x2, self.pole_y2)
+
+    # Открывает этому борту свой проём, если его ещё нет.
+    def __otkryt_svoy_vyhod(self, plane):
+        if plane.svoy_vyhod is not None:
+            return
+        storona = plane.storona_vhoda  # сторона, с которой его выпустили
+        if storona is None:
+            storona = self.__storona_u_ramki(plane)
+        if storona not in ("verh", "niz", "levo", "pravo"):
+            return
+        okno = self.__sluchainoe_okno(storona)  # проём только этого борта
+        self.v_hody.append(okno)
+        plane.svoy_vyhod = okno
+
+    # Вешает три таблички на новый борт, в конец списков.
+    def __dobavit_tablichku(self, plane):
+        y = 12  # верх, потом таблички уплотняются
+        a = board.board(12, y, 220, 96, self.display, 'image\\button1.png', plane, (0, 210, 220))
+        s = board.board(12, y, 220, 96, self.display, 'image\\button_green.png', plane, (0, 255, 0))
+        d = board.board(12, y, 220, 96, self.display, 'image\\button_red.png', plane, (255, 0, 0))
+        self.button_airplane.append(a)
+        self.button_finish.append(s)
+        self.button_stolk.append(d)
+
+    # Ставит борт за рамкой. Свой получает цель, чужой летит прямо.
+    def __postavit_bort(self, nash, imya, visota):
+        mesto = self.__mesto_vhoda()  # сторона, точка и курс
+        if mesto is None:
+            return False
+        storona, x, y, angle = mesto
+        speed = random.uniform(1.75, 2.25)  # скорость около оптимальной
+        plane = airplane.airplane(x, y, 32.3, 32.3, self.display, 'image\\camolet2.png', imya, speed, 0.5, 4, angle, 1500, visota, 305, 3048, nash, None)
+        plane.set_aeroport(self.circle_x, self.circle_y, self.circle_radiusx, self.circle_radiusy)
+        plane.voshel = False
+        plane.storona_vhoda = storona
+        plane.okno_zhdet = False
+        plane.svoy_vyhod = None
+        if nash == True:
+            self.__naznachit_cel(plane)
+        self.airplanes.append(plane)
+        self.__dobavit_tablichku(plane)
+        self.__uplotnit_tablichki()
+        return True
+
+    # Выпускает своего, если живых меньше пяти, и чужого, если их меньше двух.
+    def __rozhdenie(self):
+        seychas = time.time()  # секунды
+        if seychas >= self.sled_nash and self.__zhivyh() < REAL_ZHIVYH and self.vypolneno < self.zadach:
+            visota = self.__svobodnaya_visota()  # свободный слой
+            if visota is not None and self.__postavit_bort(True, f"Рейс{self.nomer_reisa}", visota) == True:
+                self.nomer_reisa = self.nomer_reisa + 1
+                self.sled_nash = seychas + REAL_PAUZA
+        if seychas >= self.sled_chuzhoy and self.__chuzhih() < REAL_CHUZHIH:
+            visota = random.choice(REAL_VYSOTY)  # высота чужого, на столкновения не влияет
+            if self.__postavit_bort(False, f"Борт{self.nomer_borta}", visota) == True:
+                self.nomer_borta = self.nomer_borta + 1
+                self.sled_chuzhoy = seychas + REAL_PAUZA
+
+    # Снимает закончивших, на 20 заданиях очищает экран, иначе выпускает следующих.
+    def __real_kadr(self):
+        if self.real_konec == True:
+            return
+        self.__snyat_s_ishodom()
+        if self.vypolneno >= self.zadach:
+            self.__ubrat_vseh()
+            self.real_konec = True
+            self.end_game = True
+            self.__calc_balls()
+            return
+        self.__rozhdenie()
+        self.__calc_balls()
+
     # Начинает раунд: грузит карту из JSON.
     def init_new_game(self, level):
         self.visota_input = False
@@ -546,6 +941,28 @@ class GameScene(Class.Scene):
 
         n=new_game_file.new_game_file([],[],[],0,0,0,0)  # пустая карта, чтобы вызвать from_json
         nn=n.from_json( self.display,file_text)  # загруженная карта
+        self.pole_x = 260
+        self.pole_y = 100
+        self.pole_x2 = 1820
+        self.pole_y2 = 965
+        if nn.pole is not None:
+            self.pole_x = nn.pole["x"]
+            self.pole_y = nn.pole["y"]
+            self.pole_x2 = nn.pole["x2"]
+            self.pole_y2 = nn.pole["y2"]
+        self.rezhim = nn.rezhim
+        self.zadach = nn.zadach
+        self.vypolneno = 0
+        self.ball_proshlyh = 0
+        self.stolk_vsego = 0
+        self.finish_vsego = 0
+        self.granica_vsego = 0
+        self.poteryan_vsego = 0
+        self.real_konec = False
+        self.end_game = False
+        self.nomer_okna = 1
+        self.nomer_borta = 1
+        self.click_airplane = None
         self.circle_x = nn.finish_x
         self.circle_y = nn.finish_y
         self.circle_radiusx = nn.finish_rx
@@ -593,6 +1010,8 @@ class GameScene(Class.Scene):
         for i in nn.zona:
             s = Zona.zona(self.display, i.points,i.color)
             self.n_zona.append(s)
+        if self.rezhim == "real":
+            self.__real_nachalo()
 
     # Случайные самолёты без JSON. На карты сейчас не влияет.
     def __init_airplanes(self):
