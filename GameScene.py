@@ -16,7 +16,12 @@ import point
 import time
 import MyMicrophone
 command_queue = queue.Queue()  # очередь для передачи голосовых команд
-VISOTA_SBLIGENIA_AIRPLANE = 305  # метры: столкновение, если разница высот меньше этого
+VISOTA_SBLIGENIA_AIRPLANE = 305  # метры: столкновение и интервал, если разница высот меньше этого
+INTERVAL_PIKSEL = 100  # ближе этого между центрами в одном слое — нарушение
+INTERVAL_SHTRAF = 200  # баллы, когда пара впервые вошла в интервал
+INTERVAL_KADROV = 80  # 8 секунд прямой при паузе кадра 100 мс
+CVET_INTERVAL = (255, 210, 0)  # линия нарушения интервала
+CVET_SBLIZHENIE = (230, 160, 40)  # линия предупреждения о сближении
 REAL_ZHIVYH = 5  # своих в воздухе на реальной карте
 REAL_CHUZHIH = 2  # чужих одновременно на экране
 REAL_PAUZA = 8  # секунды между появлениями
@@ -65,6 +70,11 @@ class GameScene(Class.Scene):
         self.airplanes_poteryan=0  # сколько потеряны
         self.v_hody = []  # проёмы на рамке этой карты
         self.ball = 0  # сумма расхода и штрафов
+        self.shtraf_interval = 0  # баллы за входы пар в интервал
+        self.narusheniya_interval = 0  # сколько раз пара впервые сблизилась
+        self.pary_interval = set()  # пары, которые сейчас в нарушении
+        self.linii_interval = []  # отрезки нарушения этого кадра
+        self.linii_sblizhenie = []  # отрезки предупреждения этого кадра
         self.rezhim = ""  # "" обычная карта, "real" — задания до лимита
         self.zadach = 0  # сколько заданий закрыть на реальной карте
         self.vypolneno = 0  # сели, ушли в проём или разбились
@@ -156,7 +166,6 @@ class GameScene(Class.Scene):
 
         self.__update_tyrbylentnost()
         self.__update_move_airplanes()
-        self.__calc_balls()
 
         game_end = 0  # сколько своих самолётов уже с исходом
         svoih = 0  # сколько своих самолётов на карте
@@ -250,10 +259,93 @@ class GameScene(Class.Scene):
                 i].poteryan == True:
                 game_end = game_end + 1
 
+        self.__interval()
+        self.__calc_balls()
+
         if self.rezhim == "real":
             self.__real_kadr()
         elif svoih > 0 and game_end == svoih:
             self.end_game = True
+
+    # True, если свой борт ещё летит: не сел, не разбился и не потерян.
+    def __eshche_letit(self, plane):
+        return plane.nash == True and plane.stolk == False and plane.finish == False and plane.poteryan == False
+
+    # Центр спрайта на экране.
+    def __centr(self, plane):
+        return plane.x + plane.dx / 2, plane.y + plane.dy / 2
+
+    # Сдвиг центра за кадр по текущим курсу и скорости. Снос и доворот не входят.
+    def __skorost_ekrana(self, plane):
+        shag = plane.piksel_kadra()  # пиксели за кадр
+        rad = math.radians(plane.angle)  # курс в радианах
+        return shag * math.cos(rad), -shag * math.sin(rad)
+
+    # Ближайшее расстояние центров за INTERVAL_KADROV кадров прямой.
+    def __blizhe_vperedi(self, a, b):
+        ax, ay = self.__centr(a)  # центр первого
+        bx, by = self.__centr(b)  # центр второго
+        avx, avy = self.__skorost_ekrana(a)  # шаг первого за кадр
+        bvx, bvy = self.__skorost_ekrana(b)  # шаг второго за кадр
+        rx = bx - ax  # разница центров по X
+        ry = by - ay  # разница центров по Y
+        vx = bvx - avx  # относительный шаг по X
+        vy = bvy - avy  # относительный шаг по Y
+        vv = vx * vx + vy * vy  # квадрат относительной скорости
+        if vv < 1e-8:
+            return math.hypot(rx, ry)
+        t = -(rx * vx + ry * vy) / vv  # кадр наибольшего сближения
+        if t < 0:
+            t = 0
+        elif t > INTERVAL_KADROV:
+            t = INTERVAL_KADROV
+        return math.hypot(rx + vx * t, ry + vy * t)
+
+    # Нарушение интервала и предупреждение за 8 секунд. Чужие не входят.
+    def __interval(self):
+        for plane in self.airplanes:
+            plane.interval = False
+            plane.sblizhenie = False
+        zhivye = []  # свои, которые ещё летят
+        for plane in self.airplanes:
+            if self.__eshche_letit(plane):
+                zhivye.append(plane)
+        seychas = set()  # пары в нарушении в этом кадре
+        self.linii_interval = []
+        self.linii_sblizhenie = []
+        for i in range(0, len(zhivye)):
+            for j in range(i + 1, len(zhivye)):
+                a = zhivye[i]  # первый борт пары
+                b = zhivye[j]  # второй борт пары
+                if math.fabs(a.visota_airplane - b.visota_airplane) >= VISOTA_SBLIGENIA_AIRPLANE:
+                    continue
+                ax, ay = self.__centr(a)
+                bx, by = self.__centr(b)
+                d = math.hypot(bx - ax, by - ay)  # расстояние между центрами
+                key = (id(a), id(b)) if id(a) < id(b) else (id(b), id(a))  # пара без порядка
+                if d < INTERVAL_PIKSEL:
+                    seychas.add(key)
+                    a.interval = True
+                    b.interval = True
+                    self.linii_interval.append((ax, ay, bx, by))
+                    if key not in self.pary_interval:
+                        self.shtraf_interval = self.shtraf_interval + INTERVAL_SHTRAF
+                        self.narusheniya_interval = self.narusheniya_interval + 1
+                elif self.__blizhe_vperedi(a, b) < INTERVAL_PIKSEL:
+                    a.sblizhenie = True
+                    b.sblizhenie = True
+                    self.linii_sblizhenie.append((ax, ay, bx, by))
+        for plane in zhivye:
+            if plane.interval == True:
+                plane.sblizhenie = False
+        self.pary_interval = seychas
+
+    # Линии между парами: жёлтая при нарушении, янтарная при предупреждении.
+    def __render_interval_linii(self):
+        for ax, ay, bx, by in self.linii_sblizhenie:
+            pygame.draw.line(self.display, CVET_SBLIZHENIE, (ax, ay), (bx, by), 2)
+        for ax, ay, bx, by in self.linii_interval:
+            pygame.draw.line(self.display, CVET_INTERVAL, (ax, ay), (bx, by), 2)
 
     # Рисует тёмный фон окна и прямоугольник поля с рамкой.
     def __render_pole(self):
@@ -363,6 +455,7 @@ class GameScene(Class.Scene):
         Figyrs.print_text(self.display, self.button_izmenit.x + self.izmenit_w / 2, self.button_izmenit.y + self.gameEngine.screeny * 0.045, 22, (0, 0, 0), "Изменить маршрут")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.45, self.gameEngine.screeny * 0.12, 20, (0, 0, 0), f"Столкновение, если разница высот < {VISOTA_SBLIGENIA_AIRPLANE} м")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.45, self.gameEngine.screeny * 0.15, 20, (0, 0, 0), f"Ветер, если разница высот < {Tyrbylentnost.VISOTA_SLOIA} м")
+        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.45, self.gameEngine.screeny * 0.18, 20, (0, 0, 0), f"Интервал {INTERVAL_PIKSEL} пикселей, если разница высот < {VISOTA_SBLIGENIA_AIRPLANE} м")
         if self.rezhim == "real":
             Figyrs.print_text(self.display, 480, 130, 22, (220, 230, 235), f"Выполнено {self.vypolneno} из {self.zadach}")
         self.__render_visota_input()
@@ -387,6 +480,7 @@ class GameScene(Class.Scene):
             if self.airplanes[i].stolk == False and self.airplanes[i].finish == False and self.airplanes[
                 i].poteryan == False:
                 self.airplanes[i].render()
+        self.__render_interval_linii()
 
     # Показывает итоговое окно: баллы, столкнулись, потеряны, сели и ушли через границу.
     def __render_end_game(self):
@@ -400,14 +494,15 @@ class GameScene(Class.Scene):
             poteryan = self.airplanes_poteryan
             finish = self.airplanes_finish
             granica = self.airplanes_granica
-        Figyrs.kvadr_poly(self.gameEngine.screenx*0.25,self.gameEngine.screeny*0.25,self.gameEngine.screenx*0.5,self.gameEngine.screeny*0.4,200,self.display)
+        Figyrs.kvadr_poly(self.gameEngine.screenx*0.25,self.gameEngine.screeny*0.25,self.gameEngine.screenx*0.5,self.gameEngine.screeny*0.48,200,self.display)
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.505, self.gameEngine.screeny * 0.35,80, (0, 0, 0),f"Баллы = {int(self.ball)}")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.4,self.gameEngine.screeny * 0.45,40,(0,0,0),f"Столкнулись = {stolk}")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, self.gameEngine.screeny * 0.5, 40, (0, 0, 0),f"Потерянны = {poteryan}")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.62, self.gameEngine.screeny * 0.45,40, (0, 0, 0),f"Прилетели в аэропорт = {finish}")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, self.gameEngine.screeny * 0.56, 40, (0, 0, 0), f"Ушли через границу = {granica}")
+        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, self.gameEngine.screeny * 0.62, 32, (0, 0, 0), f"Нарушения интервала = {self.narusheniya_interval}")
         if self.rezhim == "real":
-            Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, self.gameEngine.screeny * 0.62, 32, (0, 0, 0), f"Выполнено = {self.vypolneno}")
+            Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, self.gameEngine.screeny * 0.68, 32, (0, 0, 0), f"Выполнено = {self.vypolneno}")
 
 
     # Рисует таблички слева: обычная, красная или зелёная.
@@ -451,9 +546,9 @@ class GameScene(Class.Scene):
             self.airplanes[i].ymn_koef_ball(self.airplanes[i].turb_koef())
             self.airplanes[i].move()
 
-    # Считает баллы: сожжённое топливо или полный бак за разбитых и потерянных.
+    # Считает баллы: топливо, полный бак за разбитых и потерянных, штраф интервала.
     def __calc_balls(self):
-        self.ball=self.ball_proshlyh
+        self.ball=self.ball_proshlyh + self.shtraf_interval
         for i in range(0, len(self.airplanes)):
             if self.airplanes[i].nash == False:
                 continue
@@ -954,6 +1049,11 @@ class GameScene(Class.Scene):
         self.zadach = nn.zadach
         self.vypolneno = 0
         self.ball_proshlyh = 0
+        self.shtraf_interval = 0
+        self.narusheniya_interval = 0
+        self.pary_interval = set()
+        self.linii_interval = []
+        self.linii_sblizhenie = []
         self.stolk_vsego = 0
         self.finish_vsego = 0
         self.granica_vsego = 0

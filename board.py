@@ -36,8 +36,16 @@ class board:
 
     # Рисует узкую полоску рейса: имя, высота, скорость, топливо.
     def render_poloska(self):
+        ramka = self.ramka  # цвет рамки этого кадра
+        tolshina = 1  # толщина рамки
+        if self.airplane.interval == True:
+            ramka = (255, 210, 0)  # нарушение интервала
+            tolshina = 3
+        elif self.airplane.sblizhenie == True:
+            ramka = (230, 160, 40)  # предупреждение о сближении
+            tolshina = 2
         pygame.draw.rect(self.display, self.zalivka, (self.x, self.y, self.dx, self.dy))  # заливка таблички рейса
-        pygame.draw.rect(self.display, self.ramka, (self.x, self.y, self.dx, self.dy), 1)  # рамка таблички толщиной 1
+        pygame.draw.rect(self.display, ramka, (self.x, self.y, self.dx, self.dy), tolshina)  # рамка таблички
         left = self.x + 12  # левый край текста
         vysota = int(round(self.airplane.visota_airplane))  # высота в метрах
         skorost = self.airplane.skorost_kmch()  # путевая скорость, км/ч
@@ -47,8 +55,12 @@ class board:
         Figyrs.print_text_left(self.display, left, self.y + self.dy * 0.62, 18, self.stroka_cvet, f"{skorost} км/ч")
         Figyrs.print_text_left(self.display, left, self.y + self.dy * 0.84, 18, self.stroka_cvet, f"топл. {toplivo}%")
         Figyrs.print_text_right(self.display, self.x + self.dx - 8, self.y + self.dy * 0.84, 16, self.stroka_cvet, self.__kuda())
-        if self.airplane.Zapr_zon == True:
+        if self.airplane.Zapr_zon == True and self.airplane.interval == False and self.airplane.sblizhenie == False:
             Figyrs.print_text_left(self.display, self.x + self.dx - 150, self.y + self.dy * 0.18, 20, self.veter_cvet, "турбулентная зона")
+        if self.airplane.interval == True:
+            Figyrs.print_text_right(self.display, self.x + self.dx - 8, self.y + self.dy * 0.18, 18, (255, 210, 0), "интервал")
+        elif self.airplane.sblizhenie == True:
+            Figyrs.print_text_right(self.display, self.x + self.dx - 8, self.y + self.dy * 0.18, 18, (230, 160, 40), "сближение")
 
     # Куда летит рейс: аэропорт или сторона своего проёма.
     def __kuda(self):

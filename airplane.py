@@ -124,6 +124,8 @@ class airplane:
         self.storona_vhoda = None  # сторона захода снаружи, None у тех кто стартовал внутри
         self.okno_zhdet = False  # открыть проём, когда впервые войдёт в поле
         self.svoy_vyhod = None  # свой проём на рамке, None если летит в аэропорт
+        self.interval = False  # сейчас ближе 100 пикселей в одном слое
+        self.sblizhenie = False  # за 8 секунд сойдутся ближе 100
 
         self.command_last_time=time.time()  # когда последний раз применили команду
         self.command=None  # текущая команда курса или скорости
@@ -158,7 +160,9 @@ class airplane:
             storona = ROMB_R * 2  # сторона квадрата чужого
             pygame.draw.rect(self.display, CVET_CHUZHOY, (cx - ROMB_R, cy - ROMB_R, storona, storona))  # тусклый квадрат чужого
             return
-        if self.visota_airplane > self.visota_do or self.visota_airplane < self.visota_do:
+        if self.interval == True:
+            cvet = (255, 210, 0)  # нарушение интервала
+        elif self.visota_airplane > self.visota_do or self.visota_airplane < self.visota_do:
             cvet = (230, 190, 40)  # набор или снижение
         elif self.click_camolet == True:
             cvet = (255, 255, 255)  # выбранный самолёт
@@ -166,6 +170,10 @@ class airplane:
             cvet = (70, 220, 230)  # обычный борт
         tochki = [(cx, cy - ROMB_R), (cx + ROMB_R, cy), (cx, cy + ROMB_R), (cx - ROMB_R, cy)]  # вершины ромба
         pygame.draw.polygon(self.display, cvet, tochki)  # залитый ромб самолёта
+        if self.sblizhenie == True and self.interval == False:
+            kolco = ROMB_R + 5  # отступ янтарного кольца
+            obod = [(cx, cy - kolco), (cx + kolco, cy), (cx, cy + kolco), (cx - kolco, cy)]  # кольцо предупреждения
+            pygame.draw.polygon(self.display, (230, 160, 40), obod, 2)
 
     # Курс к точке (tx, ty) не больше чем на predel градусов за кадр.
     def __dovorot_k(self, tx, ty, cx, cy, angle, predel=AVTOPILOT_GRAD):
