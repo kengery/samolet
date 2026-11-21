@@ -570,6 +570,31 @@ class airplane:
             else:
                 self.command = command_airplane_speed(-speed, False)  # замедлить
 
+    # Доворот к курсу градусами. False, если другая команда ещё висит.
+    def zadat_kurs(self, grad):
+        if self.command is not None:
+            return False
+        self.avtopilot = False
+        self.__steret_marshrut()
+        grad = grad % 360  # круг 0..360
+        err = self.__raznica_kursa(self.angle, grad)  # кратчайший доворот
+        if abs(err) < 0.01:
+            return True
+        self.command_last_time = time.time()
+        self.command = command_airplane_kurs(grad)
+        return True
+
+    # Ставит путевую скорость в км/ч и зажимает её в пределах самолёта.
+    def zadat_skorost_kmch(self, kmch):
+        speed = kmch / SKOROST_KMCH  # те же единицы, что на формуляре
+        if speed < self.speed_min:
+            speed = self.speed_min
+        if speed > self.speed_max:
+            speed = self.speed_max
+        self.speed = speed
+        if isinstance(self.command, command_airplane_speed):
+            self.command = None
+
     # Проверяет, попал ли клик в спрайт самолёта. Чужой не выбирается.
     def click(self,mouse_x,mouse_y)->bool:
         if self.nash == False:
@@ -614,7 +639,7 @@ class airplane:
     def na_marshrut(self):
         self.__steret_marshrut()
         self.avtopilot = True
-        if isinstance(self.command, command_airplane_angle):
+        if isinstance(self.command, command_airplane_angle) or isinstance(self.command, command_airplane_kurs):
             self.command = None
 
     # Записывает точки маршрута и включает автопилот. Цель аэропорта не затирает.
@@ -627,7 +652,7 @@ class airplane:
         for x, y in tochki:
             self.tochki_marshruta.append((x, y))
         self.avtopilot = True
-        if isinstance(self.command, command_airplane_angle):
+        if isinstance(self.command, command_airplane_angle) or isinstance(self.command, command_airplane_kurs):
             self.command = None
 
     # Один шаг разворота у точки: быстрее обычной дуги, чтобы почти дойти и потом лететь дальше.
@@ -807,6 +832,19 @@ class airplane:
                 self.command_last_time=time.time()
                 self.camolet.set_angle(self.angle)
 
+            if isinstance(self.command, command_airplane_kurs):
+                err = self.__raznica_kursa(self.angle, self.command.kurs)  # сколько ещё до заданного курса
+                shag = self.command_angle  # шаг поворота за одно применение
+                if abs(err) <= shag:
+                    self.angle = self.angle + err
+                    self.command = None
+                elif err > 0:
+                    self.angle = self.angle + shag
+                else:
+                    self.angle = self.angle - shag
+                self.command_last_time = time.time()
+                self.camolet.set_angle(self.angle)
+
             if isinstance(self.command, command_airplane_speed):
                 speed_Min = self.command_speed  # шаг скорости за одно применение
                 if self.command.increase_speed == True:
@@ -876,6 +914,12 @@ class command_airplane_angle:
     def __init__(self,angle, left):
         self.angle=angle  # оставшийся угол команды
         self.left=left  # True — влево (+15), False — вправо
+
+# Команда доворота к заданному курсу.
+class command_airplane_kurs:
+    # Какой курс держать после шагов по 15°.
+    def __init__(self, kurs):
+        self.kurs = kurs  # заданный курс, градусы
 
 # Команда изменения скорости самолёта.
 class command_airplane_speed:

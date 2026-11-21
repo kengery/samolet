@@ -35,19 +35,23 @@ class GameScene(Class.Scene):
     def __init__(self, gameEngine, display):
         super().__init__(gameEngine)
         self.display = display  # окно pygame
-        self.button_exit = Image(gameEngine.screenx * 0.902, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09, self.display,'image\\bsxod.PNG')  # выход в меню
-        self.button_pravo = Image(gameEngine.screenx * 0.6, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09,self.display, 'image\\pravo.png')  # поворот вправо
-        self.button_levo = Image(gameEngine.screenx * 0.5, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.1,self.display, 'image\\levo.png')  # поворот влево
-        self.button_increase = Image(gameEngine.screenx * 0.4, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.093,self.display, 'image\\increase.png')  # быстрее
-        self.button_reduce = Image(gameEngine.screenx * 0.3, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09,self.display, 'image\\reduse.png')  # медленнее
-        self.button_visota = Image(gameEngine.screenx * 0.72, gameEngine.screeny * 0, gameEngine.screenx * 0.1, gameEngine.screeny * 0.09, self.display, 'image\\button1.png')  # ввод высоты
-        self.button_marshrut = Image(gameEngine.screenx * 0.82, gameEngine.screeny * 0, gameEngine.screenx * 0.08, gameEngine.screeny * 0.09, self.display, 'image\\button1.png')  # возврат на маршрут к своей цели
-        self.izmenit_w = gameEngine.screenx * 0.3 - 248 - 12  # ширина кнопки до «медленнее»
-        self.button_izmenit = Image(248, 0, self.izmenit_w, gameEngine.screeny * 0.09, self.display, 'image\\button1.png')  # ввод маршрута точками
+        self.kn_w = gameEngine.screenx * 0.08  # ширина обычной кнопки
+        self.kn_bolshaya = gameEngine.screenx * 0.105  # ширина «Изменить маршрут», «Высота» и «Маршрут»
+        self.kn_h = gameEngine.screeny * 0.09  # высота всех кнопок
+        self.button_izmenit = Image(gameEngine.screenx * 0.125, gameEngine.screeny * 0, gameEngine.screenx * 0.105, gameEngine.screeny * 0.09, self.display, 'image\\button1.png')  # ввод маршрута точками
+        self.button_reduce = Image(gameEngine.screenx * 0.23, gameEngine.screeny * 0, gameEngine.screenx * 0.08, gameEngine.screeny * 0.09, self.display, 'image\\reduse.png')  # медленнее
+        self.button_increase = Image(gameEngine.screenx * 0.31, gameEngine.screeny * 0, gameEngine.screenx * 0.08, gameEngine.screeny * 0.09, self.display, 'image\\increase.png')  # быстрее
+        self.button_levo = Image(gameEngine.screenx * 0.39, gameEngine.screeny * 0, gameEngine.screenx * 0.08, gameEngine.screeny * 0.09, self.display, 'image\\levo.png')  # поворот влево
+        self.button_pravo = Image(gameEngine.screenx * 0.47, gameEngine.screeny * 0, gameEngine.screenx * 0.08, gameEngine.screeny * 0.09, self.display, 'image\\pravo.png')  # поворот вправо
+        self.button_kurs = Image(gameEngine.screenx * 0.55, gameEngine.screeny * 0, gameEngine.screenx * 0.08, gameEngine.screeny * 0.09, self.display, 'image\\button1.png')  # ввод курса
+        self.button_skorost = Image(gameEngine.screenx * 0.63, gameEngine.screeny * 0, gameEngine.screenx * 0.08, gameEngine.screeny * 0.09, self.display, 'image\\button1.png')  # ввод скорости
+        self.button_visota = Image(gameEngine.screenx * 0.71, gameEngine.screeny * 0, gameEngine.screenx * 0.105, gameEngine.screeny * 0.09, self.display, 'image\\button1.png')  # ввод высоты
+        self.button_marshrut = Image(gameEngine.screenx * 0.815, gameEngine.screeny * 0, gameEngine.screenx * 0.105, gameEngine.screeny * 0.09, self.display, 'image\\button1.png')  # возврат на маршрут к своей цели
+        self.button_exit = Image(gameEngine.screenx * 0.92, gameEngine.screeny * 0, gameEngine.screenx * 0.08, gameEngine.screeny * 0.09, self.display, 'image\\bsxod.PNG')  # выход в меню
         self.risuet_marshrut = False  # идёт ли расстановка точек
         self.chernovik = []  # точки до правого клика
-        self.visota_input = False  # открыта ли плашка ввода высоты
-        self.visota_text = ""  # набранные метры
+        self.vvod = ""  # какая плашка открыта: visota, kurs, skorost или пусто
+        self.vvod_text = ""  # набранные цифры
         self.pole_x = 260  # левый край поля, справа от табличек
         self.pole_y = 100  # верхний край поля
         self.pole_x2 = 1820  # правый край поля
@@ -97,16 +101,15 @@ class GameScene(Class.Scene):
     def handle_events(self, events):
         self.__process_voice_commands()
         for event in events:
-            if self.visota_input and event.type == pygame.KEYDOWN:
+            if self.vvod != "" and event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    self.visota_input = False
-                    self.visota_text = ""
+                    self.__zakryt_vvod()
                 elif event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
-                    self.__apply_visota_input()
+                    self.__apply_vvod()
                 elif event.key == pygame.K_BACKSPACE:
-                    self.visota_text = self.visota_text[:-1]
-                elif event.unicode.isdigit() and len(self.visota_text) < 7:
-                    self.visota_text += event.unicode
+                    self.vvod_text = self.vvod_text[:-1]
+                elif event.unicode.isdigit() and len(self.vvod_text) < self.__vvod_predel():
+                    self.vvod_text += event.unicode
                 continue
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 if getattr(event, "repeat", 0) == 0:
@@ -142,9 +145,14 @@ class GameScene(Class.Scene):
                     if self.button_reduce.click(mouse_x, mouse_y):
                         self.click_airplane.add_speed(-1)
                         na_knopke = True
+                    if self.button_kurs.click(mouse_x, mouse_y):
+                        self.__otkryt_vvod("kurs")
+                        na_knopke = True
+                    if self.button_skorost.click(mouse_x, mouse_y):
+                        self.__otkryt_vvod("skorost")
+                        na_knopke = True
                     if self.button_visota.click(mouse_x, mouse_y):
-                        self.visota_input = True
-                        self.visota_text = ""
+                        self.__otkryt_vvod("visota")
                         na_knopke = True
                     if self.button_marshrut.click(mouse_x, mouse_y):
                         self.click_airplane.na_marshrut()
@@ -446,19 +454,24 @@ class GameScene(Class.Scene):
         self.button_levo.render()
         self.button_increase.render()
         self.button_reduce.render()
+        self.button_kurs.render()
+        self.button_skorost.render()
         self.button_visota.render()
         self.button_marshrut.render()
         self.button_izmenit.render()
         self.__render_chernovik()
-        Figyrs.print_text(self.display, self.button_visota.x + self.gameEngine.screenx * 0.05, self.button_visota.y + self.gameEngine.screeny * 0.045, 22, (0, 0, 0), "Высота")
-        Figyrs.print_text(self.display, self.button_marshrut.x + self.gameEngine.screenx * 0.04, self.button_marshrut.y + self.gameEngine.screeny * 0.045, 22, (0, 0, 0), "Маршрут")
-        Figyrs.print_text(self.display, self.button_izmenit.x + self.izmenit_w / 2, self.button_izmenit.y + self.gameEngine.screeny * 0.045, 22, (0, 0, 0), "Изменить маршрут")
+        podpis_y = self.kn_h / 2  # середина подписи на кнопке
+        Figyrs.print_text(self.display, self.button_kurs.x + self.kn_w / 2, podpis_y, 22, (0, 0, 0), "Курс")
+        Figyrs.print_text(self.display, self.button_skorost.x + self.kn_w / 2, podpis_y, 22, (0, 0, 0), "Скорость")
+        Figyrs.print_text(self.display, self.button_visota.x + self.kn_bolshaya / 2, podpis_y, 22, (0, 0, 0), "Высота")
+        Figyrs.print_text(self.display, self.button_marshrut.x + self.kn_bolshaya / 2, podpis_y, 22, (0, 0, 0), "Маршрут")
+        Figyrs.print_text(self.display, self.button_izmenit.x + self.kn_bolshaya / 2, podpis_y, 22, (0, 0, 0), "Изменить маршрут")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.45, self.gameEngine.screeny * 0.12, 20, (0, 0, 0), f"Столкновение, если разница высот < {VISOTA_SBLIGENIA_AIRPLANE} м")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.45, self.gameEngine.screeny * 0.15, 20, (0, 0, 0), f"Ветер, если разница высот < {Tyrbylentnost.VISOTA_SLOIA} м")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.45, self.gameEngine.screeny * 0.18, 20, (0, 0, 0), f"Интервал {INTERVAL_PIKSEL} пикселей, если разница высот < {VISOTA_SBLIGENIA_AIRPLANE} м")
         if self.rezhim == "real":
             Figyrs.print_text(self.display, 480, 130, 22, (220, 230, 235), f"Выполнено {self.vypolneno} из {self.zadach}")
-        self.__render_visota_input()
+        self.__render_vvod()
 
         if self.end_game == True:
             self.__render_end_game()
@@ -557,30 +570,79 @@ class GameScene(Class.Scene):
             else:
                 self.ball = self.ball + self.airplanes[i].izn_benzin
 
+    # Закрывает плашку ввода и стирает набранные цифры.
+    def __zakryt_vvod(self):
+        self.vvod = ""
+        self.vvod_text = ""
+
+    # Открывает одну плашку и закрывает остальные.
+    def __otkryt_vvod(self, kakoy):
+        self.vvod = kakoy
+        self.vvod_text = ""
+
+    # Сколько цифр можно набрать в открытой плашке.
+    def __vvod_predel(self):
+        if self.vvod == "kurs":
+            return 3
+        if self.vvod == "skorost":
+            return 4
+        return 7
+
+    # Enter в открытой плашке: высота, курс или скорость.
+    def __apply_vvod(self):
+        if self.vvod == "visota":
+            self.__apply_visota_input()
+        elif self.vvod == "kurs":
+            self.__apply_kurs_input()
+        elif self.vvod == "skorost":
+            self.__apply_skorost_input()
+
     # Записывает набранную высоту выбранному самолёту.
     def __apply_visota_input(self):
-        if self.visota_text == "" or self.click_airplane is None:
+        if self.vvod_text == "" or self.click_airplane is None:
             return
-        self.click_airplane.set_zadana_visota(int(self.visota_text))
-        self.visota_input = False
-        self.visota_text = ""
+        self.click_airplane.set_zadana_visota(int(self.vvod_text))
+        self.__zakryt_vvod()
 
-    # Рисует плашку ввода высоты в метрах.
-    def __render_visota_input(self):
-        if self.visota_input == False:
+    # Записывает курс 0–359. Если команда уже висит, плашка остаётся.
+    def __apply_kurs_input(self):
+        if self.vvod_text == "" or self.click_airplane is None:
             return
+        grad = int(self.vvod_text)  # набранные градусы
+        if grad > 359:
+            return
+        if self.click_airplane.zadat_kurs(grad) == True:
+            self.__zakryt_vvod()
+
+    # Записывает скорость в км/ч выбранному самолёту.
+    def __apply_skorost_input(self):
+        if self.vvod_text == "" or self.click_airplane is None:
+            return
+        self.click_airplane.zadat_skorost_kmch(int(self.vvod_text))
+        self.__zakryt_vvod()
+
+    # Рисует плашку ввода высоты, курса или скорости.
+    def __render_vvod(self):
+        if self.vvod == "":
+            return
+        if self.vvod == "kurs":
+            zagolovok = "Курс, градусы"  # подпись плашки
+        elif self.vvod == "skorost":
+            zagolovok = "Скорость, км/ч"
+        else:
+            zagolovok = "Высота, метры"
         x = self.gameEngine.screenx * 0.35  # левый край плашки
         y = self.gameEngine.screeny * 0.35  # верхний край плашки
         Figyrs.kvadr_poly(x, y, self.gameEngine.screenx * 0.3, self.gameEngine.screeny * 0.18, 220, self.display)
-        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, y + self.gameEngine.screeny * 0.04, 32, (0, 0, 0), "Высота, метры")
-        if self.visota_text != "":
-            shown = self.visota_text  # набранные метры
+        Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, y + self.gameEngine.screeny * 0.04, 32, (0, 0, 0), zagolovok)
+        if self.vvod_text != "":
+            shown = self.vvod_text  # набранные цифры
         else:
             shown = "_"  # подчёркивание, пока ничего не введено
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, y + self.gameEngine.screeny * 0.09, 36, (0, 0, 0), shown)
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.5, y + self.gameEngine.screeny * 0.14, 22, (0, 0, 0), "Enter — записать, Escape — отмена")
 
-    # Берёт голосовые команды и применяет поворот или скорость к самолёту.
+    # Берёт голосовые команды и применяет поворот, курс или скорость к самолёту.
     def __process_voice_commands(self):
         if not getattr(self, "airplanes", None):
             while self.my_microphone.pop_command() is not None:
@@ -607,12 +669,17 @@ class GameScene(Class.Scene):
                 plane.add_angle(cmd["value"]/100)
             elif cmd["type"] == "speed":
                 plane.add_speed(cmd["value"]/100)
+            elif cmd["type"] == "kurs":
+                plane.zadat_kurs(cmd["value"])
+            elif cmd["type"] == "speed_abs":
+                plane.zadat_skorost_kmch(cmd["value"])
 
     # Ставит выбранным этот борт. Чужой самолёт сбрасывает незаписанные точки.
     def __vzyat_samolet(self, plane):
         if self.click_airplane is not None and self.click_airplane is not plane:
             self.risuet_marshrut = False
             self.chernovik = []
+            self.__zakryt_vvod()
         if self.click_airplane is not None:
             self.click_airplane.click_camolet = False
         self.click_airplane = plane
@@ -755,6 +822,7 @@ class GameScene(Class.Scene):
             self.click_airplane = None
             self.risuet_marshrut = False
             self.chernovik = []
+            self.__zakryt_vvod()
         self.airplanes.pop(i)
         self.button_airplane.pop(i)
         self.button_finish.pop(i)
@@ -832,6 +900,7 @@ class GameScene(Class.Scene):
         self.click_airplane = None
         self.risuet_marshrut = False
         self.chernovik = []
+        self.__zakryt_vvod()
 
     # Сколько своих ещё летит.
     def __zhivyh(self):
@@ -1019,8 +1088,7 @@ class GameScene(Class.Scene):
 
     # Начинает раунд: грузит карту из JSON.
     def init_new_game(self, level):
-        self.visota_input = False
-        self.visota_text = ""
+        self.__zakryt_vvod()
         self.risuet_marshrut = False
         self.chernovik = []
         self.__new_game_from_file(level)

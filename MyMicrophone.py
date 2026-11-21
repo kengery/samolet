@@ -13,6 +13,14 @@ _SPEED_RE = re.compile(  # фраза «Рейс 3 скорость больше
     rf"^\s*{_PLANE_2}\s+скорость\s+(больше|меньше)\s+(\d+(?:[.,]\d+)?)\s*$",
     re.IGNORECASE | re.UNICODE,
 )
+_KURS_RE = re.compile(  # фраза «Рейс 3 курс 270»
+    rf"^\s*{_PLANE_2}\s+курс\s+(\d+(?:[.,]\d+)?)\s*$",
+    re.IGNORECASE | re.UNICODE,
+)
+_SPEED_ABS_RE = re.compile(  # фраза «Рейс 3 скорость 350»
+    rf"^\s*{_PLANE_2}\s+скорость\s+(\d+(?:[.,]\d+)?)\s*$",
+    re.IGNORECASE | re.UNICODE,
+)
 
 
 # Приводит имя к нижнему регистру и сжимает пробелы.
@@ -30,7 +38,7 @@ def _parse_num(s: str) -> float:
     return float(s.replace(",", "."))
 
 
-# Разбирает распознанную фразу в команду поворота или скорости, иначе None.
+# Разбирает распознанную фразу в команду поворота, курса или скорости, иначе None.
 def parse_command_text(text: str):
     t = text.strip()  # фраза без крайних пробелов
     if not t:
@@ -51,6 +59,18 @@ def parse_command_text(text: str):
         if how == "больше":
             return {"type": "speed", "name": plane_name, "value": abs(n)}
         return {"type": "speed", "name": plane_name, "value": -abs(n)}
+    m = _KURS_RE.match(t)
+    if m:
+        w1, w2, num_s = m.group(1), m.group(2), m.group(3)  # имя и градусы
+        plane_name = f"{w1.strip()} {w2.strip()}"  # имя рейса двумя словами
+        n = _parse_num(num_s)  # градусы как сказаны
+        return {"type": "kurs", "name": plane_name, "value": n}
+    m = _SPEED_ABS_RE.match(t)
+    if m:
+        w1, w2, num_s = m.group(1), m.group(2), m.group(3)  # имя и км/ч
+        plane_name = f"{w1.strip()} {w2.strip()}"  # имя рейса двумя словами
+        n = _parse_num(num_s)  # км/ч как сказаны
+        return {"type": "speed_abs", "name": plane_name, "value": n}
     return None
 
 
