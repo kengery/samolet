@@ -86,6 +86,8 @@ class airplane:
         self.turb_t0=0  # момент захода, секунды
         self.turb_napravlenie=0  # градусы сноса зоны
         self.turb_skorost=0  # скорость сноса, всегда 1 пиксель за кадр; столько же секунд длится возврат
+        self.veter_ugol = 0  # направление встречного ветра полосы, градусы
+        self.veter_sila = 0  # снос этого ветра, пиксели за кадр; у чужого 0
         self.turb_visota0=0  # высота в момент захода
         self.turb_visota_na_15=0  # высота после падения, с неё идёт возврат
         self.turb_zameren_15=False  # высота на 1.5 с уже снята
@@ -101,8 +103,11 @@ class airplane:
         self.avtopilot = self.nash  # чужой держит курс из JSON
         self.aeroport_x = None  # центр аэропорта X, None пока карта не задала
         self.aeroport_y = None  # центр аэропорта Y
-        self.aeroport_rx = None  # половина ширины картинки аэропорта
-        self.aeroport_ry = None  # половина высоты картинки аэропорта
+        self.aeroport_rx = None  # половина ширины старой картинки, для совместимости
+        self.aeroport_ry = None  # половина высоты старой картинки, для совместимости
+        self.polosa_kurs = None  # курс прямоугольника полосы, градусы
+        self.polosa_dlina = None  # длина прямоугольника, пиксели
+        self.polosa_shirina = None  # ширина прямоугольника, пиксели
         self.v_hod = v_hod  # id проёма на рамке, None — летит в аэропорт
         self.na_v_hod = False  # True, если цель — проём, а не аэропорт
         self.cherez_granicu = False  # ушёл через свой проём
@@ -150,7 +155,8 @@ class airplane:
         self.__render_romb()
         Figyrs.print_text(self.display,self.x+self.dx/2,self.y,23,cvet_teksta,f"{self.name}")
         Figyrs.print_text(self.display,self.x+self.dx/2,self.y+38,18,cvet_teksta,self.visota_text())
-        Figyrs.print_text(self.display,self.x+self.dx/2,self.y+48,18,cvet_teksta,f"{self.skorost_kmch()}")
+        Figyrs.print_text(self.display,self.x+self.dx/2,self.y+48,18,cvet_teksta,self.kurs_text())
+        Figyrs.print_text(self.display,self.x+self.dx/2,self.y+58,18,cvet_teksta,f"{self.skorost_kmch()}")
 
     # Ромб своего борта или тусклый квадрат чужого.
     def __render_romb(self):
@@ -206,34 +212,59 @@ class airplane:
         vy = -math.sin(rad)  # вперёд по Y на экране
         return vx * (px - cx) + vy * (py - cy) < 0
 
-    # True, если точка внутри картинки аэропорта.
-    def __v_kartinke(self, x, y):
-        if self.aeroport_x is None or self.aeroport_rx is None:
-            return False
-        return abs(x - self.aeroport_x) <= self.aeroport_rx and abs(y - self.aeroport_y) <= self.aeroport_ry
+    # Координаты точки в осях полосы: вдоль носа и поперёк.
+    def __v_osyah_polosy(self, x, y):
+        rad = math.radians(self.polosa_kurs)  # курс полосы в радианах
+        dx = x - self.aeroport_x  # сдвиг от центра по X
+        dy = y - self.aeroport_y  # сдвиг от центра по Y экрана
+        vdol = dx * math.cos(rad) - dy * math.sin(rad)  # вдоль носа
+        poperek = dx * math.sin(rad) + dy * math.cos(rad)  # поперёк полосы
+        return vdol, poperek
 
-    # Точка, где отрезок входит в картинку аэропорта.
+    # Точка экрана из координат вдоль полосы и поперёк.
+    def __iz_osey_polosy(self, vdol, poperek):
+        rad = math.radians(self.polosa_kurs)  # курс полосы в радианах
+        x = self.aeroport_x + vdol * math.cos(rad) + poperek * math.sin(rad)  # X экрана
+        y = self.aeroport_y - vdol * math.sin(rad) + poperek * math.cos(rad)  # Y экрана
+        return x, y
+
+    # True, если точка внутри прямоугольника полосы.
+    def nad_polosoy(self, x, y):
+        if self.polosa_dlina is None or self.aeroport_x is None:
+            return False
+        vdol, poperek = self.__v_osyah_polosy(x, y)  # точка в осях полосы
+        return abs(vdol) <= self.polosa_dlina / 2 and abs(poperek) <= self.polosa_shirina / 2
+
+    # True, если точка внутри прямоугольника полосы.
+    def __v_kartinke(self, x, y):
+        return self.nad_polosoy(x, y)
+
+    # Точка, где отрезок входит в прямоугольник полосы.
     def __vhod_v_aeroport(self, x1, y1, x2, y2):
-        left = self.aeroport_x - self.aeroport_rx  # левый край картинки
-        right = self.aeroport_x + self.aeroport_rx  # правый край картинки
-        top = self.aeroport_y - self.aeroport_ry  # верхний край картинки
-        bottom = self.aeroport_y + self.aeroport_ry  # нижний край картинки
-        dx = x2 - x1  # шаг по X
-        dy = y2 - y1  # шаг по Y
+        if self.polosa_dlina is None:
+            return (x2, y2)
+        a1, c1 = self.__v_osyah_polosy(x1, y1)  # начало отрезка в осях полосы
+        a2, c2 = self.__v_osyah_polosy(x2, y2)  # конец отрезка в осях полосы
+        left = -self.polosa_dlina / 2  # задний край
+        right = self.polosa_dlina / 2  # передний край, по носу
+        top = -self.polosa_shirina / 2  # один борт полосы
+        bottom = self.polosa_shirina / 2  # другой борт полосы
+        da = a2 - a1  # шаг вдоль полосы
+        dc = c2 - c1  # шаг поперёк
         t_hit = 1  # доля шага до границы
-        if dx != 0:
+        if da != 0:
             for i in (left, right):
-                t = (i - x1) / dx  # доля шага до вертикального края
-                y = y1 + t * dy  # Y на этом крае
-                if 0 <= t <= 1 and top <= y <= bottom and t < t_hit:
+                t = (i - a1) / da  # доля шага до короткого края
+                c = c1 + t * dc  # поперёк на этом крае
+                if 0 <= t <= 1 and top <= c <= bottom and t < t_hit:
                     t_hit = t
-        if dy != 0:
+        if dc != 0:
             for i in (top, bottom):
-                t = (i - y1) / dy  # доля шага до горизонтального края
-                x = x1 + t * dx  # X на этом крае
-                if 0 <= t <= 1 and left <= x <= right and t < t_hit:
+                t = (i - c1) / dc  # доля шага до длинного края
+                a = a1 + t * da  # вдоль на этом крае
+                if 0 <= t <= 1 and left <= a <= right and t < t_hit:
                     t_hit = t
-        return (x1 + t_hit * dx, y1 + t_hit * dy)
+        return self.__iz_osey_polosy(a1 + t_hit * da, c1 + t_hit * dc)
 
     # True, если точка ещё внутри прямоугольника поля.
     def __v_pole(self, x, y):
@@ -442,7 +473,14 @@ class airplane:
         t2x, t2y = pts[-1]  # конец последней дуги
         return pts, (t2x, t2y, hvost_ugol)
 
-    # Точки обычной линии курса от (cx, cy) с заданным курсом. Не длиннее VEKTOR_KADROV. Снос не входит.
+    # Сдвиг встречного ветра за кадр: (по X, в ту же сторону, что sin курса).
+    def __sdvig_vetra(self):
+        if self.veter_sila == 0:
+            return 0, 0
+        rad = math.radians(self.veter_ugol)  # ветер в радианах
+        return self.veter_sila * math.cos(rad), self.veter_sila * math.sin(rad)
+
+    # Точки обычной линии курса от (cx, cy) с заданным курсом. Не длиннее VEKTOR_KADROV. Ветер полосы входит, снос турбулентности нет.
     def __tochki_kursa(self, cx, cy, angle, avto):
         tochki = [(cx, cy)]  # точки линии
         if self.na_v_hod == True:
@@ -456,8 +494,9 @@ class airplane:
                 angle = self.__dovorot(cx, cy, angle)
             rad = math.radians(angle)  # курс шага в радианах
             shag = self.piksel_kadra()  # пиксели этого кадра линии
-            nx = cx + shag * math.cos(rad)  # следующий X
-            ny = cy - shag * math.sin(rad)  # следующий Y
+            vx, vy = self.__sdvig_vetra()  # снос ветра полосы за этот кадр
+            nx = cx + shag * math.cos(rad) + vx  # следующий X
+            ny = cy - shag * math.sin(rad) - vy  # следующий Y
             if self.na_v_hod == True:
                 if self.__v_pole(nx, ny) == False:
                     tochki.append(self.__vhod_v_pole(cx, cy, nx, ny))
@@ -489,7 +528,7 @@ class airplane:
         for tx, ty in self.tochki_marshruta:
             pygame.draw.circle(self.display, cvet, (tx, ty), 4)  # точка клика
 
-    # Линия не длиннее VEKTOR_KADROV кадров. На краю аэропорта или на рамке проёма обрывается. Снос не входит.
+    # Линия не длиннее VEKTOR_KADROV кадров. На краю аэропорта или на рамке проёма обрывается. Ветер полосы в ней есть.
     def __render_vektor(self):
         if self.nash == False:
             cvet = (0, 70, 75)  # линия чужого тусклее
@@ -524,6 +563,11 @@ class airplane:
         if zadana != tek:
             tekst = tekst + " " + zadana
         return tekst
+
+    # Три цифры курса носа: 0 вправо, рост против часовой.
+    def kurs_text(self):
+        kurs = int(round(self.angle % 360)) % 360  # куда смотрит нос, 0–359
+        return f"{kurs:03d}"
 
     # Пиксели за кадр: меньше, чем speed, км/ч от этого не меняются.
     def piksel_kadra(self):
@@ -601,7 +645,7 @@ class airplane:
             return False
         return self.camolet.click(mouse_x, mouse_y)
 
-    # Запоминает центр и половину размера картинки аэропорта. Без своего проёма цель — этот центр.
+    # Запоминает центр аэропорта. Без своего проёма цель — этот центр.
     def set_aeroport(self, x, y, rx, ry):
         self.aeroport_x = x
         self.aeroport_y = y
@@ -610,6 +654,12 @@ class airplane:
         if self.na_v_hod == False:
             self.cel_x = x
             self.cel_y = y
+
+    # Прямоугольник полосы: курс носа, длина и ширина в пикселях.
+    def set_polosa(self, kurs, dlina, shirina):
+        self.polosa_kurs = kurs
+        self.polosa_dlina = dlina
+        self.polosa_shirina = shirina
 
     # Цель автопилота — середина проёма на рамке. Линия курса обрывается на этой рамке.
     def set_v_hod(self, storona, a, b, pole_x, pole_y, pole_x2, pole_y2):
@@ -887,6 +937,9 @@ class airplane:
             snos_rad = math.radians(self.turb_napravlenie)  # направление сноса в радианах
             dx = dx + self.turb_skorost * sdvig * math.cos(snos_rad)  # снос по X
             dy = dy + self.turb_skorost * sdvig * math.sin(snos_rad)  # снос по Y
+        vx, vy = self.__sdvig_vetra()  # встречный ветер полосы, отдельно от турбулентности
+        dx = dx + vx
+        dy = dy + vy
 
         # Новые координаты
         self.x = self.x + dx

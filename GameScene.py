@@ -28,6 +28,12 @@ REAL_PAUZA = 8  # секунды между появлениями
 REAL_LUCH = 400  # пиксели входа, которые не должны пересечь запретную зону
 REAL_OKNO = 160  # длина проёма вдоль рамки
 REAL_VYSOTY = (610, 1220, 1830, 2440, 3040)  # слои высоты новых рейсов, метры
+POLOSA_DLINA = 150  # длина прямоугольника полосы вдоль курса, пиксели
+POLOSA_SHIRINA = 40  # ширина прямоугольника полосы, пиксели
+POLOSA_OTKL = 20  # градусы: нос ещё считается по курсу полосы
+POLOSA_VIS_MIN = 600  # нижняя высота посадки, метры
+POLOSA_VIS_MAX = 900  # верхняя высота посадки, метры
+VETER_PIKSEL = 0.2  # снос встречного ветра, пиксели за кадр
 
 # Сцена симуляции: самолёты, зоны, кнопки, счёт и голос.
 class GameScene(Class.Scene):
@@ -59,7 +65,7 @@ class GameScene(Class.Scene):
         self.fon_cvet = (6, 16, 28)  # цвет фона за полем
         self.pole_cvet = (10, 28, 46)  # заливка поля
         self.ramka_cvet = (0, 210, 220)  # цвет рамки поля
-        self.Aroport=0  # картинка аэропорта, ставится при загрузке карты
+        self.polosa_kurs = 270  # курс носа при посадке, градусы
         self.gameEngine=gameEngine  # движок сцен
         self.display=display  # окно pygame
         self.click_airplane = None  # выбранный самолёт
@@ -224,13 +230,9 @@ class GameScene(Class.Scene):
                 i].poteryan == False and self.airplanes[i].na_v_hod == False:
                 x1 = self.airplanes[i].x + self.airplanes[i].dx / 2  # центр самолёта X
                 y1 = self.airplanes[i].y + self.airplanes[i].dy / 2  # центр самолёта Y
-                x2 = self.circle_x  # центр аэропорта X
-                y2 = self.circle_y  # центр аэропорта Y
-                # находим растояние между центром самолёта и финиша
-                d = math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1))  # расстояние до аэропорта
-                if self.airplanes[i].dx + self.circle_radiusx / 2 >= d or self.airplanes[
-                    i].dy + self.circle_radiusy / 2 >= d:
-                    self.airplanes[i].finish = True
+                if self.airplanes[i].nad_polosoy(x1, y1) == True:
+                    if self.__polosa_prinimaet(self.airplanes[i]) == True:
+                        self.airplanes[i].finish = True
 
             if self.airplanes[i].stolk == False and self.airplanes[i].finish == False and self.airplanes[
                 i].poteryan == False:
@@ -274,6 +276,60 @@ class GameScene(Class.Scene):
             self.__real_kadr()
         elif svoih > 0 and game_end == svoih:
             self.end_game = True
+
+    # Курс полосы: нос к ближайшему краю, черта захода от него внутрь поля.
+    def __kurs_polosy(self):
+        kraya = [  # расстояние центра аэропорта до стороны и курс носа к ней
+            (self.circle_y - self.pole_y, 90),
+            (self.pole_y2 - self.circle_y, 270),
+            (self.circle_x - self.pole_x, 180),
+            (self.pole_x2 - self.circle_x, 0),
+        ]
+        blizhe = kraya[0]  # ближайший край
+        for kray in kraya:
+            if kray[0] < blizhe[0]:
+                blizhe = kray
+        return blizhe[1]
+
+    # Аэропорт принимает борт: высота 600–900 м и нос не дальше 20° от полосы.
+    def __polosa_prinimaet(self, plane):
+        if plane.visota_airplane < POLOSA_VIS_MIN or plane.visota_airplane > POLOSA_VIS_MAX:
+            return False
+        raznica = (self.polosa_kurs - plane.angle + 180) % 360 - 180  # кратчайший доворот до полосы
+        return abs(raznica) <= POLOSA_OTKL
+
+    # Четыре угла прямоугольника полосы: длинная сторона по курсу носа.
+    def __ugoly_polosy(self):
+        rad = math.radians(self.polosa_kurs)  # курс полосы в радианах
+        fx = math.cos(rad)  # вперёд по носу, X
+        fy = -math.sin(rad)  # вперёд по носу, Y экрана
+        px = math.sin(rad)  # поперёк полосы, X
+        py = math.cos(rad)  # поперёк полосы, Y экрана
+        dl = POLOSA_DLINA / 2  # половина длины
+        sh = POLOSA_SHIRINA / 2  # половина ширины
+        ugoly = []  # углы по часовой от носа
+        for vdol, poperek in ((dl, sh), (dl, -sh), (-dl, -sh), (-dl, sh)):
+            ugoly.append((self.circle_x + vdol * fx + poperek * px, self.circle_y + vdol * fy + poperek * py))
+        return ugoly
+
+    # Прямоугольник полосы вместо картинки аэропорта.
+    def __render_polosa(self):
+        ugoly = self.__ugoly_polosy()  # углы прямоугольника
+        pygame.draw.polygon(self.display, (28, 64, 72), ugoly)  # заливка полосы
+        pygame.draw.polygon(self.display, self.ramka_cvet, ugoly, 2)  # рамка цветом поля
+
+    # Центр аэропорта и прямоугольник полосы для линии курса и посадки.
+    def __privyazat_aeroport(self, plane):
+        plane.set_aeroport(self.circle_x, self.circle_y, self.circle_radiusx, self.circle_radiusy)
+        plane.set_polosa(self.polosa_kurs, POLOSA_DLINA, POLOSA_SHIRINA)
+
+    # Встречный ветер полосы своему борту. Чужой его не получает.
+    def __dat_veter(self, plane):
+        if plane.nash == False:
+            plane.veter_sila = 0
+            return
+        plane.veter_ugol = (self.polosa_kurs + 180) % 360
+        plane.veter_sila = VETER_PIKSEL
 
     # True, если свой борт ещё летит: не сел, не разбился и не потерян.
     def __eshche_letit(self, plane):
@@ -443,7 +499,7 @@ class GameScene(Class.Scene):
     def render(self):
         self.__render_pole()
         self.__render_tyrbylentnost()
-        self.Aroport.render()
+        self.__render_polosa()
         self.__render_airplanes()
         self.display.set_clip(None)
 
@@ -1046,13 +1102,14 @@ class GameScene(Class.Scene):
         storona, x, y, angle = mesto
         speed = random.uniform(1.75, 2.25)  # скорость около оптимальной
         plane = airplane.airplane(x, y, 32.3, 32.3, self.display, 'image\\camolet2.png', imya, speed, 0.5, 4, angle, 1500, visota, 305, 3048, nash, None)
-        plane.set_aeroport(self.circle_x, self.circle_y, self.circle_radiusx, self.circle_radiusy)
+        self.__privyazat_aeroport(plane)
         plane.voshel = False
         plane.storona_vhoda = storona
         plane.okno_zhdet = False
         plane.svoy_vyhod = None
         if nash == True:
             self.__naznachit_cel(plane)
+        self.__dat_veter(plane)
         self.airplanes.append(plane)
         self.__dobavit_tablichku(plane)
         self.__uplotnit_tablichki()
@@ -1135,7 +1192,7 @@ class GameScene(Class.Scene):
         self.circle_y = nn.finish_y
         self.circle_radiusx = nn.finish_rx
         self.circle_radiusy = nn.finish_ry
-        self.Aroport=Image(self.circle_x-self.circle_radiusx, self.circle_y-self.circle_radiusy, self.circle_radiusx*2 , self.circle_radiusy*2 , self.display,'image\\Aroport.png')
+        self.polosa_kurs = self.__kurs_polosy()
 
 
         self.airplanes=[]  # самолёты этого раунда
@@ -1145,11 +1202,12 @@ class GameScene(Class.Scene):
                                   i.speed,
                                   i.speed_min, i.speed_max, i.angle,
                                   i.benzin, i.visota_airplane, i.visota_min, i.visota_max, i.nash, i.v_hod)
-            s.set_aeroport(self.circle_x, self.circle_y, self.circle_radiusx, self.circle_radiusy)
+            self.__privyazat_aeroport(s)
             if s.v_hod is not None:
                 for j in nn.v_hody:
                     if j.id == s.v_hod:
                         s.set_v_hod(j.storona, j.a, j.b, self.pole_x, self.pole_y, self.pole_x2, self.pole_y2)
+            self.__dat_veter(s)
             self.airplanes.append(s)
 
         self.v_hody = nn.v_hody
