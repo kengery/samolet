@@ -30,9 +30,10 @@ REAL_OKNO = 160  # длина проёма вдоль рамки
 REAL_VYSOTY = (610, 1220, 1830, 2440, 3040)  # слои высоты новых рейсов, метры
 POLOSA_DLINA = 150  # длина прямоугольника полосы вдоль курса, пиксели
 POLOSA_SHIRINA = 40  # ширина прямоугольника полосы, пиксели
-POLOSA_OTKL = 20  # градусы: нос ещё считается по курсу полосы
 POLOSA_VIS_MIN = 600  # нижняя высота посадки, метры
 POLOSA_VIS_MAX = 900  # верхняя высота посадки, метры
+POSADKA_DALI = 400  # пиксели до центра аэропорта: здесь высота сильно падает
+POSADKA_SKOROST = 75  # пиксели до центра аэропорта: здесь скорость идёт к минимуму
 VETER_PIKSEL = 0.2  # снос встречного ветра, пиксели за кадр
 
 # Сцена симуляции: самолёты, зоны, кнопки, счёт и голос.
@@ -230,9 +231,16 @@ class GameScene(Class.Scene):
                 i].poteryan == False and self.airplanes[i].na_v_hod == False:
                 x1 = self.airplanes[i].x + self.airplanes[i].dx / 2  # центр самолёта X
                 y1 = self.airplanes[i].y + self.airplanes[i].dy / 2  # центр самолёта Y
+                if math.hypot(x1 - self.circle_x, y1 - self.circle_y) <= POSADKA_DALI:
+                    self.airplanes[i].silno_snizit(POLOSA_VIS_MAX)
+                if math.hypot(x1 - self.circle_x, y1 - self.circle_y) <= POSADKA_SKOROST:
+                    self.airplanes[i].k_minimum_skorosti()
                 if self.airplanes[i].nad_polosoy(x1, y1) == True:
-                    if self.__polosa_prinimaet(self.airplanes[i]) == True:
+                    if self.airplanes[i].skorost_minimalnaya() == True and self.__polosa_prinimaet(self.airplanes[i]) == True:
                         self.airplanes[i].finish = True
+                        self.airplanes[i].kruzhit = False
+                    else:
+                        self.airplanes[i].nachat_krug(POLOSA_VIS_MIN, POLOSA_VIS_MAX)
 
             if self.airplanes[i].stolk == False and self.airplanes[i].finish == False and self.airplanes[
                 i].poteryan == False:
@@ -291,12 +299,11 @@ class GameScene(Class.Scene):
                 blizhe = kray
         return blizhe[1]
 
-    # Аэропорт принимает борт: высота 600–900 м и нос не дальше 20° от полосы.
+    # Аэропорт принимает борт с любой стороны: высота 600–900 м.
     def __polosa_prinimaet(self, plane):
         if plane.visota_airplane < POLOSA_VIS_MIN or plane.visota_airplane > POLOSA_VIS_MAX:
             return False
-        raznica = (self.polosa_kurs - plane.angle + 180) % 360 - 180  # кратчайший доворот до полосы
-        return abs(raznica) <= POLOSA_OTKL
+        return True
 
     # Четыре угла прямоугольника полосы: длинная сторона по курсу носа.
     def __ugoly_polosy(self):
@@ -758,7 +765,7 @@ class GameScene(Class.Scene):
                 return
         self.chernovik.append((x, y))
 
-    # Рисует ещё не записанный маршрут: дуги по точкам и линия до курсора.
+    # Рисует ещё не записанный маршрут: прямые по точкам и линия до курсора.
     def __render_chernovik(self):
         if self.risuet_marshrut == False or self.click_airplane is None:
             return
@@ -770,9 +777,8 @@ class GameScene(Class.Scene):
             pts.append(t)
         mx, my = pygame.mouse.get_pos()  # курсор, конец черновика
         pts.append((mx, my))
-        liniya, _ = plane.liniya_skrugleniya(pts, None, False)  # без хвоста к цели
-        if len(liniya) > 1:
-            pygame.draw.lines(self.display, (180, 255, 255), False, liniya, 2)  # черновик
+        if len(pts) > 1:
+            pygame.draw.lines(self.display, (180, 255, 255), False, pts, 2)  # черновик прямыми
         for tx, ty in self.chernovik:
             pygame.draw.circle(self.display, (180, 255, 255), (tx, ty), 4)  # точка клика
 
