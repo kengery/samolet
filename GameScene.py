@@ -35,6 +35,10 @@ POLOSA_VIS_MAX = 900  # верхняя высота посадки, метры
 POSADKA_DALI = 400  # пиксели до центра аэропорта: здесь высота сильно падает
 POSADKA_SKOROST = 75  # пиксели до центра аэропорта: здесь скорость идёт к минимуму
 VETER_PIKSEL = 0.2  # снос встречного ветра, пиксели за кадр
+VTOROY_NAD = 300  # метры набора над коридором посадки на втором круге
+OZHID_SDVIG = 220  # пиксели центра овала влево или вправо от аэропорта
+OZHID_A = 120  # полуось овала по X, пиксели
+OZHID_B = 60  # полуось овала по Y, пиксели
 
 # Сцена симуляции: самолёты, зоны, кнопки, счёт и голос.
 class GameScene(Class.Scene):
@@ -55,6 +59,7 @@ class GameScene(Class.Scene):
         self.button_visota = Image(gameEngine.screenx * 0.71, gameEngine.screeny * 0, gameEngine.screenx * 0.105, gameEngine.screeny * 0.09, self.display, 'image\\button1.png')  # ввод высоты
         self.button_marshrut = Image(gameEngine.screenx * 0.815, gameEngine.screeny * 0, gameEngine.screenx * 0.105, gameEngine.screeny * 0.09, self.display, 'image\\button1.png')  # возврат на маршрут к своей цели
         self.button_exit = Image(gameEngine.screenx * 0.92, gameEngine.screeny * 0, gameEngine.screenx * 0.08, gameEngine.screeny * 0.09, self.display, 'image\\bsxod.PNG')  # выход в меню
+        self.button_ozhidanie = Image(gameEngine.screenx * 0.815, gameEngine.screeny * 0.09, gameEngine.screenx * 0.105, gameEngine.screeny * 0.045, self.display, 'image\\button1.png')  # увод на овал, под «Маршрут»
         self.risuet_marshrut = False  # идёт ли расстановка точек
         self.chernovik = []  # точки до правого клика
         self.vvod = ""  # какая плашка открыта: visota, kurs, skorost или пусто
@@ -161,6 +166,10 @@ class GameScene(Class.Scene):
                     if self.button_visota.click(mouse_x, mouse_y):
                         self.__otkryt_vvod("visota")
                         na_knopke = True
+                    if self.button_ozhidanie.click(mouse_x, mouse_y):
+                        ox, oy = self.__centr_ozhidaniya()  # центр овала сбоку от аэропорта
+                        self.click_airplane.nachat_ozhidanie(ox, oy, OZHID_A, OZHID_B)
+                        na_knopke = True
                     if self.button_marshrut.click(mouse_x, mouse_y):
                         self.click_airplane.na_marshrut()
                         na_knopke = True
@@ -188,6 +197,7 @@ class GameScene(Class.Scene):
         self.airplanes_finish = 0
         self.airplanes_granica = 0
         self.airplanes_poteryan = 0
+        kto_na_cherte = self.__kto_na_cherte()  # кто держит полосу в этом кадре
         for i in range(0, len(self.airplanes)):
             if self.airplanes[i].nash == False:
                 if self.airplanes[i].ushel == False:
@@ -231,12 +241,15 @@ class GameScene(Class.Scene):
                 i].poteryan == False and self.airplanes[i].na_v_hod == False:
                 x1 = self.airplanes[i].x + self.airplanes[i].dx / 2  # центр самолёта X
                 y1 = self.airplanes[i].y + self.airplanes[i].dy / 2  # центр самолёта Y
-                if math.hypot(x1 - self.circle_x, y1 - self.circle_y) <= POSADKA_DALI:
-                    self.airplanes[i].silno_snizit(POLOSA_VIS_MAX)
-                if math.hypot(x1 - self.circle_x, y1 - self.circle_y) <= POSADKA_SKOROST:
-                    self.airplanes[i].k_minimum_skorosti()
-                if self.airplanes[i].nad_polosoy(x1, y1) == True:
-                    if self.airplanes[i].skorost_minimalnaya() == True and self.__polosa_prinimaet(self.airplanes[i]) == True:
+                if self.airplanes[i].vtoroy == False and self.airplanes[i].ozhidanie == False:
+                    if math.hypot(x1 - self.circle_x, y1 - self.circle_y) <= POSADKA_DALI:
+                        self.airplanes[i].silno_snizit(POLOSA_VIS_MAX)
+                    if math.hypot(x1 - self.circle_x, y1 - self.circle_y) <= POSADKA_SKOROST:
+                        self.airplanes[i].k_minimum_skorosti()
+                if self.airplanes[i].nad_polosoy(x1, y1) == True and self.airplanes[i].vtoroy == False and self.airplanes[i].ozhidanie == False:
+                    if kto_na_cherte is not None and self.airplanes[i] is not kto_na_cherte:
+                        self.airplanes[i].nachat_vtoroy((self.polosa_kurs + 90) % 360, POLOSA_VIS_MAX + VTOROY_NAD)
+                    elif self.airplanes[i].skorost_minimalnaya() == True and self.__polosa_prinimaet(self.airplanes[i]) == True:
                         self.airplanes[i].finish = True
                         self.airplanes[i].kruzhit = False
                     else:
@@ -304,6 +317,39 @@ class GameScene(Class.Scene):
         if plane.visota_airplane < POLOSA_VIS_MIN or plane.visota_airplane > POLOSA_VIS_MAX:
             return False
         return True
+
+    # Свой ещё летит и не ушёл на второй круг или ожидание. тоесть можем ли использовать самолёт
+    def __mozhet_na_chert(self, plane):
+        if plane.nash == False or plane.na_v_hod == True:
+            return False
+        if plane.stolk == True or plane.finish == True or plane.poteryan == True:
+            return False
+        if plane.vtoroy == True or plane.ozhidanie == True:
+            return False
+        return True
+
+    # Кто держит черт: сначала тот, кто уже кружит, иначе первый в списке над полосой.
+    def __kto_na_cherte(self):
+        if getattr(self, "airplanes", None) is None:
+            return None
+        for plane in self.airplanes:
+            if self.__mozhet_na_chert(plane) == True and plane.kruzhit == True:
+                return plane
+        for plane in self.airplanes:
+            if self.__mozhet_na_chert(plane) == False:
+                continue
+            x = plane.x + plane.dx / 2  # центр по X
+            y = plane.y + plane.dy / 2  # центр по Y
+            if plane.nad_polosoy(x, y) == True:
+                return plane
+        return None
+
+    # Центр овала: 220 пикселей левее аэропорта, если точка ещё в поле, иначе правее.
+    def __centr_ozhidaniya(self):
+        x = self.circle_x - OZHID_SDVIG  # левее аэропорта
+        if self.pole_x < x < self.pole_x2 and self.pole_y < self.circle_y < self.pole_y2:
+            return x, self.circle_y
+        return self.circle_x + OZHID_SDVIG, self.circle_y
 
     # Четыре угла прямоугольника полосы: длинная сторона по курсу носа.
     def __ugoly_polosy(self):
@@ -521,6 +567,7 @@ class GameScene(Class.Scene):
         self.button_skorost.render()
         self.button_visota.render()
         self.button_marshrut.render()
+        self.button_ozhidanie.render()
         self.button_izmenit.render()
         self.__render_chernovik()
         podpis_y = self.kn_h / 2  # середина подписи на кнопке
@@ -529,6 +576,7 @@ class GameScene(Class.Scene):
         Figyrs.print_text(self.display, self.button_visota.x + self.kn_bolshaya / 2, podpis_y, 22, (0, 0, 0), "Высота")
         Figyrs.print_text(self.display, self.button_marshrut.x + self.kn_bolshaya / 2, podpis_y, 22, (0, 0, 0), "Маршрут")
         Figyrs.print_text(self.display, self.button_izmenit.x + self.kn_bolshaya / 2, podpis_y, 22, (0, 0, 0), "Изменить маршрут")
+        Figyrs.print_text(self.display, self.button_ozhidanie.x + self.kn_bolshaya / 2, self.button_ozhidanie.y + self.gameEngine.screeny * 0.0225, 18, (0, 0, 0), "Ожидание")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.45, self.gameEngine.screeny * 0.12, 20, (0, 0, 0), f"Столкновение, если разница высот < {VISOTA_SBLIGENIA_AIRPLANE} м")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.45, self.gameEngine.screeny * 0.15, 20, (0, 0, 0), f"Ветер, если разница высот < {Tyrbylentnost.VISOTA_SLOIA} м")
         Figyrs.print_text(self.display, self.gameEngine.screenx * 0.45, self.gameEngine.screeny * 0.18, 20, (0, 0, 0), f"Интервал {INTERVAL_PIKSEL} пикселей, если разница высот < {VISOTA_SBLIGENIA_AIRPLANE} м")

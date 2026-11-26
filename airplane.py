@@ -25,6 +25,8 @@ RAZVOROT_GRAD = 150  # стык круче этого: если дуга не в
 RAZVOROT_SHAG = 30  # градусы за кадр у этого разворота, чтобы борт почти дошёл до точки
 SHAG_DUGI = 6  # шаг точек дуги на экране, градусы
 POROG_TOCHKI = 45  # пиксели: борт пролетел близко к точке изменённого маршрута
+VTOROY_SEK = 4  # секунды прямого полёта, когда нос уже на курсе второго круга
+OZHID_ZAHVAT = 36  # пиксели: борт уже на овале и дальше держит касательную
 
 
 @dataclass
@@ -139,6 +141,14 @@ class airplane:
         self.snizhenie_silnoe = False  # высота падает шагом PODEM_SILNO
         self.tormoz = False  # ближе 75 пикселей скорость идёт к минимуму
         self.tormoz_t = 0  # когда последний раз снизили скорость к минимуму
+        self.vtoroy = False  # второй круг: черт занят другим, к цели ещё не вернулся
+        self.vtoroy_kurs = 0  # курс второго круга, градусы
+        self.vtoroy_t = None  # секунды, когда нос уже лёг на курс второго круга
+        self.ozhidanie = False  # кружит по овалу, пока не сняли ожидание
+        self.ozhid_x = None  # центр овала по X
+        self.ozhid_y = None  # центр овала по Y
+        self.ozhid_a = 120  # полуось овала по X, пиксели
+        self.ozhid_b = 60  # полуось овала по Y, пиксели
 
         self.command_last_time=time.time()  # когда последний раз применили команду
         self.command=None  # текущая команда курса или скорости
@@ -577,6 +587,11 @@ class airplane:
             cvet = (0, 120, 130)  # остальные тусклее
         cx = self.x + self.dx / 2  # центр самолёта по X
         cy = self.y + self.dy / 2  # центр самолёта по Y
+        if self.vtoroy == True:
+            tochki = self.__tochki_vtorogo(cx, cy)  # доворот второго круга и прямая после него
+            if len(tochki) > 1:
+                pygame.draw.lines(self.display, cvet, False, tochki, 2)
+            return
         if self.kruzhit == True:
             tochki = self.__tochki_kruga(cx, cy)  # дуга круга вокруг аэропорта
             if len(tochki) > 1:
@@ -666,6 +681,132 @@ class airplane:
         elif self.visota_airplane < vis_min:
             self.set_zadana_visota(vis_min)
 
+    # Второй круг: набор до заданной высоты и курс в сторону от полосы. Четыре секунды после доворота.
+    def nachat_vtoroy(self, kurs, visota):
+        self.vtoroy = True
+        self.vtoroy_kurs = kurs % 360
+        self.vtoroy_t = None
+        self.kruzhit = False
+        self.ozhidanie = False
+        self.snizhenie_silnoe = False
+        self.tormoz = False
+        self.avtopilot = False
+        self.__steret_marshrut()
+        if isinstance(self.command, command_airplane_angle) or isinstance(self.command, command_airplane_kurs):
+            self.command = None
+        cel = self.visota_airplane  # выше коридора не снижаем
+        if cel < visota:
+            cel = visota
+        self.set_zadana_visota(cel)
+
+    # Доворот к курсу второго круга. Когда нос уже там четыре секунды, снова к своей цели.
+    def __shag_vtorogo(self):
+        err = self.__raznica_kursa(self.angle, self.vtoroy_kurs)  # сколько ещё до курса ухода
+        if abs(err) <= KRUG_GRAD:
+            self.angle = self.angle + err
+            if self.vtoroy_t is None:
+                self.vtoroy_t = time.time()
+            elif time.time() - self.vtoroy_t >= VTOROY_SEK:
+                self.vtoroy = False
+                self.vtoroy_t = None
+                self.na_marshrut()
+                self.camolet.set_angle(self.angle)
+                return
+        elif err > 0:
+            self.angle = self.angle + KRUG_GRAD
+        else:
+            self.angle = self.angle - KRUG_GRAD
+        self.camolet.set_angle(self.angle)
+
+    # Уводит выбранного на овал и забывает маршрут, круг над аэропортом и второй круг.
+    def nachat_ozhidanie(self, x, y, a, b):
+        self.ozhidanie = True
+        self.ozhid_x = x
+        self.ozhid_y = y
+        self.ozhid_a = a
+        self.ozhid_b = b
+        self.vtoroy = False
+        self.vtoroy_t = None
+        self.kruzhit = False
+        self.snizhenie_silnoe = False
+        self.tormoz = False
+        self.avtopilot = False
+        self.__steret_marshrut()
+        if isinstance(self.command, command_airplane_angle) or isinstance(self.command, command_airplane_kurs):
+            self.command = None
+
+    # Точка эллипса: t растёт против часовой на экране.
+    def __tochka_ovala(self, t):
+        x = self.ozhid_x + self.ozhid_a * math.cos(t)  # правее центра при t = 0
+        y = self.ozhid_y - self.ozhid_b * math.sin(t)  # выше центра, ось Y экрана вниз
+        return x, y
+
+    # Ближайший параметр овала и расстояние до него.
+    def __blizh_t_ovala(self, cx, cy):
+        luch = 0  # параметр ближайшей точки
+        luch_d = None  # расстояние до неё
+        shag = math.pi / 24  # шаг перебора по эллипсу
+        i = 0
+        while i < 48:
+            t = i * shag  # параметр точки
+            x, y = self.__tochka_ovala(t)
+            d = math.hypot(x - cx, y - cy)  # расстояние от борта
+            if luch_d is None or d < luch_d:
+                luch_d = d
+                luch = t
+            i = i + 1
+        return luch, luch_d
+
+    # Курс касательной овала, влево по обходу.
+    def __kurs_kasatelnoi(self, t):
+        return math.degrees(math.atan2(self.ozhid_b * math.cos(t), -self.ozhid_a * math.sin(t)))
+
+    # Сначала к овалу, на нём — по касательной, не быстрее круга над аэропортом.
+    def __shag_ovala(self, cx, cy):
+        t, d = self.__blizh_t_ovala(cx, cy)  # где овал ближе всего
+        if d > OZHID_ZAHVAT:
+            x, y = self.__tochka_ovala(t + 0.4)  # чуть впереди по обходу
+            self.angle = self.__dovorot_k(x, y, cx, cy, self.angle, KRUG_GRAD)
+        else:
+            err = self.__raznica_kursa(self.angle, self.__kurs_kasatelnoi(t))  # до касательной
+            if err > KRUG_GRAD:
+                err = KRUG_GRAD
+            elif err < -KRUG_GRAD:
+                err = -KRUG_GRAD
+            self.angle = self.angle + err
+        self.camolet.set_angle(self.angle)
+
+    # Линия второго круга: доворот к курсу ухода, затем прямая оставшихся секунд.
+    def __tochki_vtorogo(self, cx, cy):
+        tochki = [(cx, cy)]  # нос линии
+        angle = self.angle  # курс первого шага
+        if self.vtoroy_t is None:
+            pryamaya = int(VTOROY_SEK / 0.1)  # кадры прямой после доворота, кадр 100 мс
+        else:
+            ostalos = VTOROY_SEK - (time.time() - self.vtoroy_t)  # секунды прямой ещё впереди
+            pryamaya = int(ostalos / 0.1)
+            if pryamaya < 0:
+                pryamaya = 0
+        shlo = 0  # сколько кадров прямой уже нарисовано
+        for _ in range(VEKTOR_KADROV):
+            err = self.__raznica_kursa(angle, self.vtoroy_kurs)  # сколько ещё до курса ухода
+            if abs(err) <= KRUG_GRAD:
+                angle = angle + err
+                shlo = shlo + 1
+                if shlo > pryamaya:
+                    break
+            elif err > 0:
+                angle = angle + KRUG_GRAD
+            else:
+                angle = angle - KRUG_GRAD
+            rad = math.radians(angle)  # курс шага в радианах
+            shag = self.piksel_kadra()  # пиксели этого кадра
+            vx, vy = self.__sdvig_vetra()  # снос ветра полосы за этот кадр
+            cx = cx + shag * math.cos(rad) + vx
+            cy = cy - shag * math.sin(rad) - vy
+            tochki.append((cx, cy))
+        return tochki
+
     # Ставит целевую высоту в метрах и зажимает её в пределах самолёта.
     def set_zadana_visota(self, metry):
         if metry < self.visota_min:
@@ -687,6 +828,10 @@ class airplane:
         if self.command is None:
             self.avtopilot = False
             self.__steret_marshrut()
+            self.ozhidanie = False
+            self.vtoroy = False
+            self.vtoroy_t = None
+            self.kruzhit = False
             self.command_last_time=time.time()
             if angle>0:
                 self.command=command_airplane_angle(angle, True)  # поворот влево
@@ -709,6 +854,7 @@ class airplane:
             return False
         self.avtopilot = False
         self.__steret_marshrut()
+        self.ozhidanie = False
         grad = grad % 360  # круг 0..360
         err = self.__raznica_kursa(self.angle, grad)  # кратчайший доворот
         if abs(err) < 0.01:
@@ -777,6 +923,7 @@ class airplane:
     # Забывает изменённый маршрут и снова ведёт борт к своей цели.
     def na_marshrut(self):
         self.__steret_marshrut()
+        self.ozhidanie = False
         self.avtopilot = True
         if isinstance(self.command, command_airplane_angle) or isinstance(self.command, command_airplane_kurs):
             self.command = None
@@ -790,6 +937,7 @@ class airplane:
         self.razvorot_kout_zhdet = None
         for x, y in tochki:
             self.tochki_marshruta.append((x, y))
+        self.ozhidanie = False
         self.avtopilot = True
         if isinstance(self.command, command_airplane_angle) or isinstance(self.command, command_airplane_kurs):
             self.command = None
@@ -980,7 +1128,11 @@ class airplane:
                         self.command = None
                 self.command_last_time = time.time()
 
-        if self.kruzhit == True:
+        if self.vtoroy == True:
+            self.__shag_vtorogo()
+        elif self.ozhidanie == True:
+            self.__shag_ovala(self.x + self.dx / 2, self.y + self.dy / 2)
+        elif self.kruzhit == True:
             self.angle = self.angle + KRUG_GRAD * self.krug_znak
             self.camolet.set_angle(self.angle)
         elif self.avtopilot == True and isinstance(self.command, command_airplane_angle) == False:
